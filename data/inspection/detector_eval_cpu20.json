@@ -1,0 +1,172 @@
+{
+  "model": "weights/yolo11n.pt",
+  "images": 20,
+  "counts": {
+    "car": 412,
+    "person": 88,
+    "truck": 9,
+    "bus": 2,
+    "motorcycle": 3
+  },
+  "mean_confidence": {
+    "car": 0.49347182482625673,
+    "person": 0.3978299503637986,
+    "truck": 0.27613845964272815,
+    "bus": 0.31386126577854156,
+    "motorcycle": 0.2938470443089803
+  },
+  "per_frame": [
+    {
+      "image": "frame_00000_00000.000.jpg",
+      "counts": {
+        "car": 21,
+        "person": 6,
+        "truck": 2
+      }
+    },
+    {
+      "image": "frame_00001_00001.710.jpg",
+      "counts": {
+        "car": 18,
+        "person": 10
+      }
+    },
+    {
+      "image": "frame_00002_00003.421.jpg",
+      "counts": {
+        "car": 19,
+        "person": 6,
+        "truck": 1
+      }
+    },
+    {
+      "image": "frame_00003_00005.131.jpg",
+      "counts": {
+        "car": 19,
+        "person": 7,
+        "truck": 1
+      }
+    },
+    {
+      "image": "frame_00004_00006.841.jpg",
+      "counts": {
+        "car": 23,
+        "person": 5,
+        "bus": 1
+      }
+    },
+    {
+      "image": "frame_00005_00008.551.jpg",
+      "counts": {
+        "car": 18,
+        "person": 7
+      }
+    },
+    {
+      "image": "frame_00006_00010.262.jpg",
+      "counts": {
+        "car": 20,
+        "person": 6
+      }
+    },
+    {
+      "image": "frame_00007_00011.972.jpg",
+      "counts": {
+        "car": 24,
+        "person": 3
+      }
+    },
+    {
+      "image": "frame_00008_00013.682.jpg",
+      "counts": {
+        "car": 26,
+        "person": 3
+      }
+    },
+    {
+      "image": "frame_00009_00015.392.jpg",
+      "counts": {
+        "car": 26,
+        "person": 4
+      }
+    },
+    {
+      "image": "frame_00010_00017.103.jpg",
+      "counts": {
+        "car": 22,
+        "person": 4,
+        "truck": 1
+      }
+    },
+    {
+      "image": "frame_00011_00018.813.jpg",
+      "counts": {
+        "car": 24,
+        "person": 2
+      }
+    },
+    {
+      "image": "frame_00012_00020.523.jpg",
+      "counts": {
+        "car": 23,
+        "person": 1,
+        "truck": 1
+      }
+    },
+    {
+      "image": "frame_00013_00022.233.jpg",
+      "counts": {
+        "car": 18,
+        "person": 3,
+        "motorcycle": 1
+      }
+    },
+    {
+      "image": "frame_00014_00023.944.jpg",
+      "counts": {
+        "car": 20,
+        "person": 6,
+        "truck": 1
+      }
+    },
+    {
+      "image": "frame_00015_00025.654.jpg",
+      "counts": {
+        "car": 19,
+        "person": 2,
+        "motorcycle": 2
+      }
+    },
+    {
+      "image": "frame_00016_00027.364.jpg",
+      "counts": {
+        "car": 19,
+        "person": 3
+      }
+    },
+    {
+      "image": "frame_00017_00029.074.jpg",
+      "counts": {
+        "car": 16,
+        "person": 5,
+        "truck": 1
+      }
+    },
+    {
+      "image": "frame_00018_00030.785.jpg",
+      "counts": {
+        "car": 18,
+        "person": 2,
+        "truck": 1
+      }
+    },
+    {
+      "image": "frame_00019_00032.495.jpg",
+      "counts": {
+        "car": 19,
+        "person": 3,
+        "bus": 1
+      }
+    }
+  ]
+}

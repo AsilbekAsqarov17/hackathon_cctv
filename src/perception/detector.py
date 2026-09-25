@@ -208,6 +208,14 @@ def build_detector(config: dict[str, Any]) -> Any:
         return NullDetector()
     if backend == "motion":
         return MotionDetector(config)
+    if backend == "onnx":
+        try:
+            from .onnx_detector import OnnxDetector
+
+            return OnnxDetector(config)
+        except Exception as exc:
+            warnings.warn(f"ONNX detector unavailable ({exc}); falling back to no detections")
+            return NullDetector()
     try:
         return YoloDetector(config)
     except Exception as exc:

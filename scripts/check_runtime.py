@@ -17,7 +17,15 @@ def main() -> int:
     print(f"numpy: {bool(importlib.util.find_spec('numpy'))}")
     print(f"opencv: {bool(importlib.util.find_spec('cv2'))}")
     print(f"ultralytics: {bool(importlib.util.find_spec('ultralytics'))}")
-    print(f"torch: {bool(importlib.util.find_spec('torch'))}")
+    torch_spec = importlib.util.find_spec("torch")
+    print(f"torch: {bool(torch_spec)}")
+    if torch_spec:
+        import torch
+
+        print(f"torch_version: {torch.__version__}")
+        print(f"cuda_available: {torch.cuda.is_available()}")
+        if torch.cuda.is_available():
+            print(f"cuda_device: {torch.cuda.get_device_name(0)}")
     print(f"scipy: {bool(importlib.util.find_spec('scipy'))}")
     print(f"lap: {bool(importlib.util.find_spec('lap'))}")
     print(f"cython_bbox: {bool(importlib.util.find_spec('cython_bbox'))}")

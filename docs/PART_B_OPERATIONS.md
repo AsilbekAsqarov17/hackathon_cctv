@@ -29,7 +29,7 @@ The report includes:
 Start with `configs/risk.example.json` and copy the `risk` section into the
 active Part A configuration. Tune in this order:
 
-1. TTC scale and near-distance threshold;
+1. TTC floor/progress and near-distance threshold;
 2. closing-speed/deceleration scales;
 3. accident/near-miss boosts;
 4. score decay and alarm threshold.

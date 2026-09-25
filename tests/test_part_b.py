@@ -8,6 +8,7 @@ import numpy as np
 from src.contracts import FrameState, SceneState, TrackState
 from src.part_b import (
     CausalRiskEstimator,
+    _score_features,
     clear_risk_features,
     get_risk_features,
     publish_risk_features,
@@ -53,6 +54,10 @@ class PartBTests(unittest.TestCase):
         self.assertIsNotNone(result.min_ttc)
         self.assertLess(result.min_ttc, 5.0)
         self.assertGreater(result.max_closing_speed, 0.0)
+
+    def test_close_ttc_can_trigger_alarm_score(self) -> None:
+        score = _score_features(feature(0.0, 0.5, 20.0), 0.0, {"ttc_floor": 0.45})
+        self.assertGreaterEqual(score, 0.5)
 
     def test_cache_reader_is_causal(self) -> None:
         config = "configs/default.json"

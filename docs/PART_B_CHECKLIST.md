@@ -3,7 +3,7 @@
 - [x] Keep the required `RiskEstimator.reset(meta)` and `.step(frame, t)` API.
 - [x] Add a canonical causal track-feature contract.
 - [x] Add TTC, distance, closing-speed, braking, and pedestrian features.
-- [x] Add a calibrated five-second risk scorer.
+- [x] Add an initial five-second causal risk scorer.
 - [x] Prevent future cached features from being read by earlier timestamps.
 - [x] Add a fallback causal detector/tracker runtime when no cache exists.
 - [x] Share compact features with the Part A pass to avoid duplicate inference.

@@ -17,6 +17,7 @@ def main() -> int:
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--batch", type=int, default=8)
     parser.add_argument("--device", default="")
+    parser.add_argument("--workers", type=int, default=0)
     parser.add_argument("--project", default="runs/detect")
     parser.add_argument("--name", default="traffic_part_a")
     args = parser.parse_args()
@@ -32,6 +33,7 @@ def main() -> int:
         "epochs": args.epochs,
         "imgsz": args.imgsz,
         "batch": args.batch,
+        "workers": args.workers,
         "project": args.project,
         "name": args.name,
         "exist_ok": True,

@@ -4,7 +4,7 @@ solution.py — the ONLY file a team has to implement.
 The organizers' harness (run_submission.py) imports this module and calls:
 
     detect_events(video_path)  -> [[start_sec, end_sec, label], ...]    # Part A
-    RiskEstimator().reset(meta); .step(frame, t_sec) -> float           # Part B (optional)
+    RiskEstimator().reset(meta); .step(frame, t_sec) -> float           # Part B
 
 Keep the names and signatures exactly as they are. Everything else — models,
 tracking, rules, helper modules under src/ — is up to you.

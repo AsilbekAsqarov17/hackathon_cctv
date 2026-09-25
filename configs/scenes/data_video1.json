@@ -1,0 +1,35 @@
+{
+  "scene_id": "data_video1",
+  "normalized": true,
+  "auto_road_fallback": false,
+  "road_polygons": [
+    [[0.00, 0.08], [0.48, 0.35], [1.00, 0.48], [1.00, 0.68], [0.48, 0.57], [0.00, 0.40]],
+    [[0.00, 0.60], [0.45, 0.40], [1.00, 0.18], [1.00, 0.38], [0.45, 0.60], [0.00, 0.95]]
+  ],
+  "lanes": [
+    {"id": 0, "name": "road_a_SE", "polygon": [[0.00, 0.08], [0.48, 0.35], [1.00, 0.48], [1.00, 0.57], [0.48, 0.46], [0.00, 0.24]], "direction": [1.0, 0.35], "allowed_moves": ["straight", "right"]},
+    {"id": 1, "name": "road_a_NW", "polygon": [[0.00, 0.25], [0.48, 0.46], [1.00, 0.57], [1.00, 0.68], [0.48, 0.57], [0.00, 0.40]], "direction": [-1.0, -0.35], "allowed_moves": ["straight", "left"]},
+    {"id": 2, "name": "road_b_NE", "polygon": [[0.00, 0.60], [0.45, 0.40], [1.00, 0.18], [1.00, 0.28], [0.45, 0.52], [0.00, 0.78]], "direction": [1.0, -0.40], "allowed_moves": ["straight", "right"]},
+    {"id": 3, "name": "road_b_SW", "polygon": [[0.00, 0.78], [0.45, 0.52], [1.00, 0.28], [1.00, 0.38], [0.45, 0.65], [0.00, 0.95]], "direction": [-1.0, 0.40], "allowed_moves": ["straight", "left"]}
+  ],
+  "stop_lines": [
+    {"id": "road_a_nw_stop", "segment": [[0.00, 0.40], [0.40, 0.54]], "direction": [1.0, 0.35]},
+    {"id": "road_a_se_stop", "segment": [[0.62, 0.55], [1.00, 0.68]], "direction": [1.0, 0.35]},
+    {"id": "road_b_sw_stop", "segment": [[0.00, 0.78], [0.40, 0.58]], "direction": [1.0, -0.40]},
+    {"id": "road_b_ne_stop", "segment": [[0.62, 0.42], [1.00, 0.27]], "direction": [1.0, -0.40]}
+  ],
+  "solid_lines": [
+    {"id": "road_a_center", "segment": [[0.00, 0.24], [0.48, 0.46], [1.00, 0.57]]},
+    {"id": "road_b_center", "segment": [[0.00, 0.78], [0.45, 0.52], [1.00, 0.28]]}
+  ],
+  "crosswalks": [
+    {"id": "crosswalk_sw", "polygon": [[0.00, 0.58], [0.10, 0.54], [0.40, 0.78], [0.25, 0.90]]},
+    {"id": "crosswalk_center", "polygon": [[0.12, 0.52], [0.62, 0.39], [0.73, 0.47], [0.20, 0.62]]},
+    {"id": "crosswalk_ne", "polygon": [[0.63, 0.40], [0.90, 0.29], [1.00, 0.37], [0.73, 0.50]]}
+  ],
+  "traffic_lights": [
+    {"id": "nw_signal", "roi": [0.105, 0.415, 0.145, 0.515]},
+    {"id": "center_signal", "roi": [0.555, 0.285, 0.595, 0.385]},
+    {"id": "ne_signal", "roi": [0.790, 0.315, 0.830, 0.415]}
+  ]
+}

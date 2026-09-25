@@ -44,8 +44,9 @@ runtime that consumes only the frame passed to `step`.
 - current accident/near-miss/wrong-way rule candidates;
 - stopped and closing-pair counts.
 
-The initial scorer is a calibrated heuristic, not a future-label classifier.
-A learned temporal model can later replace `_score_features` while keeping the
+The initial scorer is a heuristic, not a future-label classifier. Its
+weights and thresholds must be calibrated on a labeled validation split. A
+learned temporal model can later replace `_score_features` while keeping the
 same feature contract.
 
 ## Files

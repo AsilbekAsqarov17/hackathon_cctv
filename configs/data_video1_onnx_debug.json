@@ -1,0 +1,7 @@
+{
+  "detector": {"backend": "onnx", "model": "weights/yolo11n.onnx", "confidence": 0.20, "iou": 0.5, "imgsz": 640, "device": "cpu", "stride": 3},
+  "tracker": {"backend": "simple_bytetrack", "high_threshold": 0.5, "low_threshold": 0.15, "match_threshold": 0.3, "max_age": 30, "min_hits": 2},
+  "scene": {"path": "configs/scenes/data_video1_base.json"},
+  "active_classes": ["accident", "near_miss", "red_light", "wrong_way", "illegal_u_turn", "stopped_vehicle", "jaywalking", "failure_to_yield", "illegal_turn", "solid_line_crossing", "stop_line", "congestion", "road_obstacle", "fire_smoke"],
+  "debug": {"enabled": true, "write_video": false, "dump_jsonl": true, "output_dir": "data/inspection/debug_runtime"}
+}

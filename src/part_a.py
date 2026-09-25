@@ -44,6 +44,7 @@ class PartAPipeline:
         self.active_classes = set(active)
         self.rules = RuleEngine(self.config.get("rules", {}))
         self.debug_enabled = bool(self.config.get("debug", {}).get("enabled", False))
+        self.write_debug_video = bool(self.config.get("debug", {}).get("write_video", True))
         self.dump_jsonl = bool(self.config.get("debug", {}).get("dump_jsonl", False))
         self.debug_dir = Path(self.config.get("debug", {}).get("output_dir", ROOT / "debug"))
         if not self.debug_dir.is_absolute():
@@ -118,19 +119,33 @@ class PartAPipeline:
         flags_file = None
         if self.debug_enabled:
             self.debug_dir.mkdir(parents=True, exist_ok=True)
-            output_path = self.debug_dir / f"{Path(video_path).stem}_part_a.mp4"
-            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-            writer = cv2.VideoWriter(str(output_path), fourcc, max(1.0, info.fps), (info.width, info.height))
+            if self.write_debug_video:
+                output_path = self.debug_dir / f"{Path(video_path).stem}_part_a.mp4"
+                fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+                writer = cv2.VideoWriter(str(output_path), fourcc, max(1.0, info.fps), (info.width, info.height))
             if self.dump_jsonl:
                 flags_file = (self.debug_dir / f"{Path(video_path).stem}_flags.jsonl").open("w", encoding="utf-8")
         processed = 0
         risk_samples: list[dict[str, Any]] = []
         last_timestamp = 0.0
+        perception_warned = False
         try:
             for frame_id, timestamp, frame in reader.frames(stride=stride):
                 last_timestamp = timestamp
-                detections = detector.predict(frame)
-                observations = tracker.update(detections, frame_id, timestamp, frame)
+                try:
+                    detections = detector.predict(frame)
+                except Exception as exc:
+                    if not perception_warned:
+                        warnings.warn(f"detector failed; continuing without detections: {exc}")
+                        perception_warned = True
+                    detections = []
+                try:
+                    observations = tracker.update(detections, frame_id, timestamp, frame)
+                except Exception as exc:
+                    if not perception_warned:
+                        warnings.warn(f"tracker failed; continuing without tracks: {exc}")
+                        perception_warned = True
+                    observations = []
                 tracks = manager.update(observations, timestamp, frame_id, scene_context)
                 traffic_stats = analytics.update(tracks, scene_context)
                 lights = light_reader.update(frame, detections)

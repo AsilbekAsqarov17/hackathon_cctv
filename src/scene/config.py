@@ -48,6 +48,7 @@ class SceneConfig:
     solid_lines: list[SceneLine] = field(default_factory=list)
     crossings: list[list[list[float]]] = field(default_factory=list)
     road_polygon: list[list[float]] = field(default_factory=list)
+    road_polygons: list[list[list[float]]] = field(default_factory=list)
     traffic_lights: list[TrafficLightROI] = field(default_factory=list)
     homography: list[list[float]] | None = None
     normalized: bool = False
@@ -61,11 +62,12 @@ class SceneConfig:
             or self.solid_lines
             or self.crossings
             or self.road_polygon
+            or self.road_polygons
         )
 
     @property
     def has_road(self) -> bool:
-        return bool(self.road_polygon or self.lanes)
+        return bool(self.road_polygon or self.road_polygons or self.lanes)
 
 
 def _point(value: Sequence[float]) -> Point:
@@ -132,6 +134,11 @@ def load_scene_config(
     ]
     crossings = [item for item in crossings if len(item) >= 3]
     road = rescale_points(data.get("road_polygon", []), width, height, normalized)
+    road_polygons = [
+        rescale_points(item, width, height, normalized)
+        for item in data.get("road_polygons", [])
+    ]
+    road_polygons = [item for item in road_polygons if len(item) >= 3]
     lights: list[TrafficLightROI] = []
     for index, item in enumerate(data.get("traffic_lights", [])):
         roi_raw = item.get("roi", item.get("bbox"))
@@ -155,6 +162,7 @@ def load_scene_config(
         solid_lines=solid_lines,
         crossings=crossings,
         road_polygon=road,
+        road_polygons=road_polygons,
         traffic_lights=lights,
         homography=data.get("homography"),
         normalized=normalized,
@@ -237,6 +245,8 @@ class SceneContext:
             # explicit road polygon in the scene file.
             return self.height > 0 and self.height * 0.45 <= point[1] <= self.height * 0.98
         if self.config.road_polygon and point_in_polygon(point, self.config.road_polygon):
+            return True
+        if any(point_in_polygon(point, polygon) for polygon in self.config.road_polygons):
             return True
         return any(point_in_polygon(point, lane.polygon) for lane in self.config.lanes)
 

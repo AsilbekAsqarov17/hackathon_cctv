@@ -144,6 +144,34 @@ python -m unittest discover -v
 For a CPU-only smoke test, use `TRAFFIC_DETECTOR_BACKEND=motion`; the real
 competition run should use the local YOLO checkpoint on the available GPU.
 
+### RTX 3050 development setup
+
+The PyPI `torch` wheel may be CPU-only. On Windows, install a CUDA build first:
+
+```powershell
+.\scripts\setup_cuda.ps1
+python scripts\check_runtime.py
+```
+
+The check must report `cuda_available: True` and the RTX 3050 device name. For
+the lighter ONNX Runtime path, install the CUDA DLL packages and verify the
+provider before running any video:
+
+```powershell
+python scripts/onnx_gpu_smoke.py --image data/inspection/frame_5000.jpg
+```
+
+The command must print `session_providers` with `CUDAExecutionProvider` first
+and exit successfully. Only after that, use `configs/data_video1_onnx_dev.json`.
+Do not start a full-video loop while the provider is falling back to CPU.
+
+Use `configs/data_video1_dev.json` for the PyTorch/Ultralytics path; it sets
+`device: "0"`. You can override it without editing code:
+
+```powershell
+$env:TRAFFIC_DEVICE="0"
+```
+
 Scene-specific rules require a camera configuration for line/signal/turn
 logic. Copy `configs/scenes/default.json` to a video/camera-specific JSON file
 and set its lanes, stop lines, crossings, road polygon, and traffic-light

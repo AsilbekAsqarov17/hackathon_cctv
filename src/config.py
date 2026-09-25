@@ -50,7 +50,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "risk": {
         "horizon_sec": 5.0,
-        "ttc_scale_sec": 1.6,
+        "ttc_floor": 0.45,
         "near_distance_px": 180.0,
         "pedestrian_distance_px": 140.0,
         "closing_speed_scale": 180.0,
@@ -79,7 +79,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "fire_smoke": 0.3,
         },
     },
-    "debug": {"enabled": False, "dump_jsonl": False, "output_dir": "debug"},
+    "debug": {"enabled": False, "write_video": True, "dump_jsonl": False, "output_dir": "debug"},
 }
 
 
@@ -103,6 +103,10 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
     if not path:
         return config
     path = Path(path)
+    if not path.exists() and not path.is_absolute():
+        project_candidate = Path(__file__).resolve().parents[1] / path
+        if project_candidate.exists():
+            path = project_candidate
     if not path.exists():
         raise FileNotFoundError(f"configuration not found: {path}")
     text = path.read_text(encoding="utf-8-sig")
@@ -124,6 +128,9 @@ def apply_environment_overrides(config: dict[str, Any]) -> dict[str, Any]:
     out = copy.deepcopy(config)
     mapping = {
         "TRAFFIC_YOLO_MODEL": ("detector", "model"),
+        "TRAFFIC_DEVICE": ("detector", "device"),
+        "TRAFFIC_IMGSZ": ("detector", "imgsz"),
+        "TRAFFIC_STRIDE": ("detector", "stride"),
         "TRAFFIC_DETECTOR_BACKEND": ("detector", "backend"),
         "TRAFFIC_TRACKER_BACKEND": ("tracker", "backend"),
         "TRAFFIC_SCENE_CONFIG": ("scene", "path"),

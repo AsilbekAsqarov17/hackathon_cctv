@@ -1,0 +1,30 @@
+{
+  "detector": {
+    "backend": "yolo",
+    "model": "yolo11n.pt",
+    "confidence": 0.20,
+    "iou": 0.5,
+    "imgsz": 640,
+    "device": "0",
+    "stride": 3,
+    "fallback_motion": false,
+    "allow_download": false
+  },
+  "tracker": {
+    "backend": "official",
+    "high_threshold": 0.5,
+    "low_threshold": 0.15,
+    "match_threshold": 0.7,
+    "max_age": 30,
+    "min_hits": 2
+  },
+  "scene": {
+    "path": "configs/scenes/data_video1_base.json"
+  },
+  "debug": {
+    "enabled": false,
+    "write_video": false,
+    "dump_jsonl": false,
+    "output_dir": "data/inspection/runtime"
+  }
+}

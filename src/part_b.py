@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import os
 import warnings
 from pathlib import Path
@@ -85,9 +84,13 @@ def _score_features(
     ttc = features.get("min_ttc")
     raw = 0.0
     if ttc is not None and 0.0 < float(ttc) <= horizon:
-        # A collision inside one second is high risk; the curve is smooth so
-        # the ranking metric sees a useful pre-accident gradient.
-        raw = max(raw, math.exp(-float(ttc) / float(risk_config.get("ttc_scale_sec", 1.6))))
+        # A pair with a finite TTC receives a smooth pre-collision ramp. The
+        # floor is deliberately below the alarm threshold; smoothing and the
+        # other interaction terms determine when a 0.5 alarm is reached.
+        ttc_floor = float(risk_config.get("ttc_floor", 0.45))
+        progress = max(0.0, 1.0 - float(ttc) / max(horizon, 1e-6))
+        ttc_risk = ttc_floor + (1.0 - ttc_floor) * progress
+        raw = max(raw, ttc_risk)
     distance = features.get("min_distance")
     closing = float(features.get("max_closing_speed", 0.0))
     if distance is not None and (closing > 0.0 or ttc is not None):
@@ -133,12 +136,19 @@ class _CausalRuntime:
         self.stride = max(1, int(config.get("detector", {}).get("stride", 3)))
         self.frame_index = 0
         self.last_features: dict[str, Any] = {}
+        self._warned = False
 
     def step(self, frame: np.ndarray, timestamp: float) -> dict[str, Any]:
         current_detections: list[Any] = []
         if self.frame_index % self.stride == 0:
-            current_detections = self.detector.predict(frame)
-            observations = self.tracker.update(current_detections, self.frame_index, timestamp, frame)
+            try:
+                current_detections = self.detector.predict(frame)
+                observations = self.tracker.update(current_detections, self.frame_index, timestamp, frame)
+            except Exception as exc:
+                if not self._warned:
+                    warnings.warn(f"Part B perception failed; retaining causal state: {exc}")
+                    self._warned = True
+                observations = []
         else:
             observations = []
         self.frame_index += 1
@@ -175,6 +185,7 @@ class CausalRiskEstimator:
         self.cache_index = 0
         self.last_features: dict[str, Any] = {}
         self.previous_score = 0.0
+        self.last_score = 0.0
         self.runtime: _CausalRuntime | None = None
 
     def reset(self, meta: dict) -> None:
@@ -184,6 +195,7 @@ class CausalRiskEstimator:
         self.cache_index = 0
         self.last_features = {}
         self.previous_score = 0.0
+        self.last_score = 0.0
         self.runtime = None if self.cache is not None else _CausalRuntime(self.config, self.meta)
 
     def _cached_features(self, timestamp: float) -> dict[str, Any]:
@@ -210,4 +222,5 @@ class CausalRiskEstimator:
             features = {}
         score = _score_features(features, self.previous_score, self.risk_config)
         self.previous_score = score
+        self.last_score = score
         return float(min(1.0, max(0.0, score)))

@@ -40,7 +40,7 @@
   },
   "risk": {
     "horizon_sec": 5.0,
-    "ttc_scale_sec": 1.6,
+    "ttc_floor": 0.45,
     "near_distance_px": 180.0,
     "pedestrian_distance_px": 140.0,
     "closing_speed_scale": 180.0,
@@ -71,6 +71,7 @@
   },
   "debug": {
     "enabled": false,
+    "write_video": true,
     "dump_jsonl": false,
     "output_dir": "debug"
   }
