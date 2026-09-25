@@ -1,0 +1,3 @@
+# Optional active class list for experiments.
+# The default solution keeps the official class list; set
+# TRAFFIC_ACTIVE_CLASSES=wrong_way,stopped_vehicle,congestion to restrict rules.

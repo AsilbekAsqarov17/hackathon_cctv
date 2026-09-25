@@ -1,0 +1,77 @@
+{
+  "detector": {
+    "backend": "auto",
+    "model": "yolo11n.pt",
+    "confidence": 0.25,
+    "iou": 0.5,
+    "imgsz": 640,
+    "device": "",
+    "stride": 3,
+    "fallback_motion": false,
+    "allow_download": false
+  },
+  "tracker": {
+    "backend": "official",
+    "high_threshold": 0.5,
+    "low_threshold": 0.15,
+    "match_threshold": 0.7,
+    "max_age": 30,
+    "min_hits": 2
+  },
+  "scene": {
+    "path": "",
+    "default_path": "configs/scenes/default.json"
+  },
+  "rules": {
+    "wrong_way": {"enabled": true, "min_speed": 4.0, "direction_dot": -0.45, "debounce_frames": 3},
+    "stopped_vehicle": {"enabled": true, "speed": 3.0, "duration": 10.0},
+    "congestion": {"enabled": true, "min_vehicles": 4, "speed": 8.0, "duration": 5.0},
+    "stop_line": {"enabled": true, "hold": 0.6},
+    "red_light": {"enabled": true, "hold": 0.8},
+    "solid_line_crossing": {"enabled": true, "hold": 0.5},
+    "illegal_turn": {"enabled": true, "hold": 0.8},
+    "illegal_u_turn": {"enabled": true, "hold": 0.8, "angle": 2.35},
+    "jaywalking": {"enabled": true, "duration": 1.0},
+    "failure_to_yield": {"enabled": true, "hold": 0.8},
+    "near_miss": {"enabled": true, "ttc": 2.5, "distance": 120.0, "hold": 0.5},
+    "accident": {"enabled": true, "distance": 55.0, "hold": 0.8},
+    "road_obstacle": {"enabled": true, "duration": 1.0},
+    "fire_smoke": {"enabled": true, "duration": 0.5}
+  },
+  "risk": {
+    "horizon_sec": 5.0,
+    "ttc_scale_sec": 1.6,
+    "near_distance_px": 180.0,
+    "pedestrian_distance_px": 140.0,
+    "closing_speed_scale": 180.0,
+    "deceleration_scale": 80.0,
+    "decay": 0.85,
+    "accident_boost": 0.90,
+    "near_miss_boost": 0.68,
+    "wrong_way_boost": 0.58
+  },
+  "temporal": {
+    "merge_gap": 1.0,
+    "min_duration": {
+      "accident": 0.3,
+      "near_miss": 0.3,
+      "red_light": 0.3,
+      "wrong_way": 1.0,
+      "illegal_u_turn": 0.5,
+      "stopped_vehicle": 10.0,
+      "jaywalking": 0.5,
+      "failure_to_yield": 0.5,
+      "illegal_turn": 0.5,
+      "solid_line_crossing": 0.3,
+      "stop_line": 0.3,
+      "congestion": 5.0,
+      "road_obstacle": 0.5,
+      "fire_smoke": 0.3
+    }
+  },
+  "debug": {
+    "enabled": false,
+    "dump_jsonl": false,
+    "output_dir": "debug"
+  }
+}

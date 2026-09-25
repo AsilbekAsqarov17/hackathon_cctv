@@ -1,0 +1,23 @@
+# Part A completion checklist
+
+- [x] Keep `run_submission.py` and `evaluate.py` unchanged.
+- [x] Add a `src/` package and a thin `solution.py` adapter.
+- [x] Add a dependency-free detector/tracker fallback for smoke tests.
+- [x] Add optional Ultralytics detector adapter with no implicit downloads.
+- [x] Add official ByteTrack adapter path plus a simple two-stage fallback.
+- [x] Configure the official tracker as the default when optional dependencies are installed.
+- [x] Add canonical `TrackManager` with history, velocity, acceleration, and lanes.
+- [x] Add configurable scene geometry and traffic-light ROI reader.
+- [x] Add frame-level rules for the 14 official labels.
+- [x] Add temporal debounce, minimum-duration filtering, and overlap removal.
+- [x] Add unit tests for geometry, tracking, and temporal conversion.
+- [x] Add synthetic-video and benchmark scripts.
+- [x] Add optional annotated debug video/JSONL output.
+- [x] Add homography and detector fine-tuning helper scripts.
+- [x] Add an end-to-end synthetic pipeline test with a fake detector.
+- [x] Verify the official harness accepts a Part A-only smoke-test prediction.
+- [x] Add a local competition detector checkpoint (`weights/yolo11n.pt`).
+- [ ] Annotate the development videos and tune thresholds (no labeled development videos are present yet).
+- [x] Add a camera-specific scene configuration template and loader.
+- [ ] Benchmark per-class F1 and runtime on a labeled development split.
+- [ ] Verify the final offline submission environment with the competition videos and hardware.

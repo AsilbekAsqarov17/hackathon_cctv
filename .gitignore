@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+debug/
+.DS_Store
+*.mp4
+*.avi
+*.mov
+# Keep the selected checkpoint under weights/ for offline submission.
+# Add other local checkpoints explicitly if they are not part of the release.
+predictions*.json

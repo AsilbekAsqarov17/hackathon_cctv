@@ -1,0 +1,8 @@
+# Optional Part A detector/tracker dependencies.
+# Install a CUDA-compatible torch/torchvision first when the competition
+# provides them; Ultralytics will use that installation.
+# Review the Ultralytics model/code license before distributing the submission.
+ultralytics>=8.4,<9
+scipy>=1.10
+lap>=0.5
+cython_bbox>=0.1

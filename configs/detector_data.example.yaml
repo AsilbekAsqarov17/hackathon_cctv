@@ -1,0 +1,19 @@
+# Copy this file and update paths for the local fixed-CCTV dataset.
+# The labels are object labels, not the 14 temporal event labels.
+path: D:/Hackathon/data/traffic_coco
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: person
+  1: bicycle
+  2: car
+  3: motorcycle
+  4: bus
+  5: truck
+  6: traffic light
+  7: traffic sign
+  8: fire
+  9: smoke
+  10: obstacle

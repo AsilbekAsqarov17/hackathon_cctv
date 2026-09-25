@@ -1,0 +1,11 @@
+{
+  "scene_id": "unconfigured",
+  "normalized": false,
+  "auto_road_fallback": true,
+  "lanes": [],
+  "stop_lines": [],
+  "solid_lines": [],
+  "crosswalks": [],
+  "road_polygon": [],
+  "traffic_lights": []
+}

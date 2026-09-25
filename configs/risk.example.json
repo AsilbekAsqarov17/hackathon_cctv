@@ -1,0 +1,12 @@
+{
+  "horizon_sec": 5.0,
+  "ttc_scale_sec": 1.6,
+  "near_distance_px": 180.0,
+  "pedestrian_distance_px": 140.0,
+  "closing_speed_scale": 180.0,
+  "deceleration_scale": 80.0,
+  "decay": 0.85,
+  "accident_boost": 0.90,
+  "near_miss_boost": 0.68,
+  "wrong_way_boost": 0.58
+}

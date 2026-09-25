@@ -1,0 +1,90 @@
+from __future__ import annotations
+
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import Any
+
+from ..contracts import RuleSignal
+
+
+@dataclass
+class _ActiveSample:
+    timestamp: float
+    confidence: float
+    start_hint: float | None
+    evidence: dict[str, Any]
+
+
+class TemporalSegmenter:
+    """Converts sampled rule flags into valid, non-overlapping intervals."""
+
+    def __init__(self, config: dict[str, Any] | None = None, duration: float = 0.0):
+        config = config or {}
+        self.duration = max(0.0, float(duration))
+        self.merge_gap = float(config.get("merge_gap", 1.0))
+        durations = config.get("min_duration", {}) or {}
+        self.min_duration = {str(k): float(v) for k, v in durations.items()}
+        self._samples: dict[str, list[_ActiveSample]] = defaultdict(list)
+        self._last_timestamp = 0.0
+        self._sample_dt = 0.0
+
+    def add(self, timestamp: float, signals: dict[str, RuleSignal]) -> None:
+        timestamp = float(timestamp)
+        if self._last_timestamp:
+            self._sample_dt = max(self._sample_dt, timestamp - self._last_timestamp)
+        self._last_timestamp = timestamp
+        for label, signal in signals.items():
+            if signal.active and signal.confidence > 0.0:
+                self._samples[label].append(
+                    _ActiveSample(
+                        timestamp=timestamp,
+                        confidence=float(signal.confidence),
+                        start_hint=signal.start_hint,
+                        evidence=dict(signal.evidence),
+                    )
+                )
+
+    def _groups(self, label: str) -> list[list[_ActiveSample]]:
+        samples = sorted(self._samples.get(label, []), key=lambda item: item.timestamp)
+        if not samples:
+            return []
+        groups: list[list[_ActiveSample]] = [[samples[0]]]
+        for sample in samples[1:]:
+            previous = groups[-1][-1]
+            if sample.timestamp - previous.timestamp <= self.merge_gap + 1e-6:
+                groups[-1].append(sample)
+            else:
+                groups.append([sample])
+        return groups
+
+    def finalize(self, duration: float | None = None) -> list[list[float | str]]:
+        total_duration = self.duration if duration is None else float(duration)
+        events: list[list[float | str]] = []
+        for label, groups in self._groups_all():
+            minimum = self.min_duration.get(label, 0.5)
+            for group in groups:
+                hinted_starts = [item.start_hint for item in group if item.start_hint is not None]
+                start = min(hinted_starts) if hinted_starts else group[0].timestamp
+                end = group[-1].timestamp + max(self._sample_dt, 1.0 / 25.0)
+                start = max(0.0, min(start, total_duration))
+                end = max(start, min(end, total_duration))
+                if end <= start or end - start + 1e-6 < minimum:
+                    continue
+                events.append([round(start, 3), round(end, 3), label])
+        # The harness rejects same-class overlaps. Enforce that invariant here
+        # even when a future rule implementation emits overlapping candidates.
+        events.sort(key=lambda event: (event[2], event[0], event[1]))
+        kept: list[list[float | str]] = []
+        last_end: dict[str, float] = {}
+        for event in events:
+            label = str(event[2])
+            start, end = float(event[0]), float(event[1])
+            if start < last_end.get(label, -1.0):
+                continue
+            kept.append(event)
+            last_end[label] = end
+        kept.sort(key=lambda event: (float(event[0]), str(event[2])))
+        return kept
+
+    def _groups_all(self) -> list[tuple[str, list[list[_ActiveSample]]]]:
+        return [(label, self._groups(label)) for label in sorted(self._samples)]
