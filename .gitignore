@@ -22,3 +22,6 @@ predictions*.json
 
 # Regenerable annotation/EDA artefacts (scripts/make_review_sheets.py).
 data/review/
+
+# Run logs from local benchmarking.
+data/inspection/*.log
