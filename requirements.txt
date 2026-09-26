@@ -1,2 +1,17 @@
+# Runtime dependencies for the official offline run.
+#
+#   pip install -r requirements.txt
+#   python run_submission.py --videos /data/test --out predictions.json
+#
+# The default detector is the bundled ONNX checkpoint (weights/yolo11n.onnx),
+# so no torch and no ulttralytics are needed at inference time. That keeps the
+# install small and avoids compiled dependencies, which is deliberate: the
+# evaluation host is offline and a failed install would score the whole run 0.
+#
+# The vendored ByteTrack under third_party/ additionally wants lap,
+# cython_bbox and scipy, none of which ship manylinux wheels. It is therefore
+# NOT the default tracker -- src/perception/tracker.py falls back to a
+# dependency-free ByteTrack-style IoU tracker that needs nothing extra.
 numpy>=1.24
 opencv-python-headless>=4.8
+onnxruntime-gpu>=1.16

@@ -24,6 +24,8 @@ class TemporalSegmenter:
         self.merge_gap = float(config.get("merge_gap", 1.0))
         durations = config.get("min_duration", {}) or {}
         self.min_duration = {str(k): float(v) for k, v in durations.items()}
+        ceilings = config.get("max_duration", {}) or {}
+        self.max_duration = {str(k): float(v) for k, v in ceilings.items()}
         self._samples: dict[str, list[_ActiveSample]] = defaultdict(list)
         self._last_timestamp = 0.0
         self._sample_dt = 0.0
@@ -62,12 +64,20 @@ class TemporalSegmenter:
         events: list[list[float | str]] = []
         for label, groups in self._groups_all():
             minimum = self.min_duration.get(label, 0.5)
+            ceiling = self.max_duration.get(label)
             for group in groups:
                 hinted_starts = [item.start_hint for item in group if item.start_hint is not None]
                 start = min(hinted_starts) if hinted_starts else group[0].timestamp
                 end = group[-1].timestamp + max(self._sample_dt, 1.0 / 25.0)
                 start = max(0.0, min(start, total_duration))
                 end = max(start, min(end, total_duration))
+                # A rule that stays satisfied for the whole clip is a rule that
+                # is too loose, not a real event. Reporting it as one long
+                # segment earns no temporal IoU against a short ground-truth
+                # event, so cap the length instead. The onset carries the
+                # information, so trim from the end and keep the start.
+                if ceiling is not None and ceiling > 0 and end - start > ceiling:
+                    end = start + ceiling
                 if end <= start or end - start + 1e-6 < minimum:
                     continue
                 events.append([round(start, 3), round(end, 3), label])

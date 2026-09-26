@@ -1,7 +1,7 @@
 {
   "detector": {
-    "backend": "auto",
-    "model": "yolo11n.pt",
+    "backend": "onnx",
+    "model": "weights/yolo11n.onnx",
     "confidence": 0.25,
     "iou": 0.5,
     "imgsz": 640,
@@ -19,22 +19,22 @@
     "min_hits": 2
   },
   "scene": {
-    "path": "",
-    "default_path": "configs/scenes/default.json"
+    "path": "configs/scenes/tashkent_intersection.json",
+    "default_path": "configs/scenes/tashkent_intersection.json"
   },
   "rules": {
-    "wrong_way": {"enabled": true, "min_speed": 4.0, "direction_dot": -0.45, "debounce_frames": 3},
-    "stopped_vehicle": {"enabled": true, "speed": 3.0, "duration": 10.0},
-    "congestion": {"enabled": true, "min_vehicles": 4, "speed": 8.0, "duration": 5.0},
+    "wrong_way": {"enabled": true, "min_speed_mps": 1.5, "direction_dot": -0.45, "debounce_frames": 3},
+    "stopped_vehicle": {"enabled": true, "speed_mps": 0.6, "duration": 10.0},
+    "congestion": {"enabled": true, "min_vehicles": 4, "crawl_mps": 2.2, "duration": 5.0},
     "stop_line": {"enabled": true, "hold": 0.6},
     "red_light": {"enabled": true, "hold": 0.8},
     "solid_line_crossing": {"enabled": true, "hold": 0.5},
     "illegal_turn": {"enabled": true, "hold": 0.8},
-    "illegal_u_turn": {"enabled": true, "hold": 0.8, "angle": 2.35},
+    "illegal_u_turn": {"enabled": false, "hold": 0.8, "angle": 2.35},
     "jaywalking": {"enabled": true, "duration": 1.0},
     "failure_to_yield": {"enabled": true, "hold": 0.8},
-    "near_miss": {"enabled": true, "ttc": 2.5, "distance": 120.0, "hold": 0.5},
-    "accident": {"enabled": true, "distance": 55.0, "hold": 0.8},
+    "near_miss": {"enabled": true, "deceleration_mps2": 2.5, "closing_mps": 2.0, "gap_m": 3.0, "overlap": 0.02, "ttc": 2.0, "hold": 2.0},
+    "accident": {"enabled": true, "contact_gap_m": 0.6, "overlap": 0.05, "impact_closing_mps": 1.5, "impact_decel_mps2": 4.0, "hold": 3.0},
     "road_obstacle": {"enabled": true, "duration": 1.0},
     "fire_smoke": {"enabled": true, "duration": 0.5}
   },
@@ -52,6 +52,20 @@
   },
   "temporal": {
     "merge_gap": 1.0,
+    "max_duration": {
+      "accident": 20.0,
+      "near_miss": 8.0,
+      "red_light": 20.0,
+      "wrong_way": 30.0,
+      "jaywalking": 25.0,
+      "failure_to_yield": 12.0,
+      "illegal_turn": 10.0,
+      "solid_line_crossing": 6.0,
+      "stop_line": 15.0,
+      "congestion": 90.0,
+      "road_obstacle": 20.0,
+      "fire_smoke": 30.0
+    },
     "min_duration": {
       "accident": 0.3,
       "near_miss": 0.3,

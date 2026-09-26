@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import warnings
 from collections.abc import Callable, Iterable
 from typing import Any
@@ -122,10 +123,40 @@ class RuleEngine:
 
     @staticmethod
     def _deceleration(track: TrackState) -> float:
-        speed = track.speed
-        if speed <= 1e-3:
+        return track.deceleration_mps2()
+
+    @staticmethod
+    def _closing_speed_mps(first: TrackState, second: TrackState) -> float:
+        """Rate at which the gap between two tracks shrinks, in m/s."""
+        dx = second.center[0] - first.center[0]
+        dy = second.center[1] - first.center[1]
+        distance = math.hypot(dx, dy)
+        if distance <= 1e-6:
             return 0.0
-        return -vector_dot(track.acceleration, track.velocity) / speed
+        rel_x = second.velocity[0] - first.velocity[0]
+        rel_y = second.velocity[1] - first.velocity[1]
+        rate = -(dx * rel_x + dy * rel_y) / distance
+        # Convert with the larger of the two scales so the pair is judged in
+        # metres even when one of the boxes is too small to measure.
+        scales = [s for s in (first.metres_per_pixel, second.metres_per_pixel) if s]
+        scale = max(scales) if scales else None
+        return max(0.0, rate * scale) if scale else 0.0
+
+    @staticmethod
+    def _gap_m(first: TrackState, second: TrackState) -> float | None:
+        """Edge-to-edge distance between two boxes, in metres.
+
+        Box *centres* are a poor proxy for contact: two cars in adjacent lanes
+        have close centres while their bodies are a metre apart. The gap
+        between the boxes themselves is what "contact is visible" means.
+        """
+        dx = max(0.0, max(first.bbox[0], second.bbox[0]) - min(first.bbox[2], second.bbox[2]))
+        dy = max(0.0, max(first.bbox[1], second.bbox[1]) - min(first.bbox[3], second.bbox[3]))
+        gap_px = math.hypot(dx, dy)
+        scales = [s for s in (first.metres_per_pixel, second.metres_per_pixel) if s]
+        if not scales:
+            return None
+        return gap_px * max(scales)
 
     def _wrong_way(self, state: FrameState) -> RuleSignal:
         label = "wrong_way"
@@ -135,7 +166,8 @@ class RuleEngine:
             return self._inactive(label)
         active_keys: set[tuple[Any, ...]] = set()
         for track in state.tracks:
-            if not TrackManager.is_vehicle(track) or track.speed < float(cfg.get("min_speed", 4.0)):
+            speed = track.speed_mps
+            if not TrackManager.is_vehicle(track) or speed is None or speed < float(cfg.get("min_speed_mps", 1.5)):
                 self._wrong_way_counts.pop(track.track_id, None)
                 continue
             lane = scene.lane_for_point(track.center)
@@ -180,7 +212,7 @@ class RuleEngine:
         for other in state.tracks:
             if other.track_id == track.track_id or not TrackManager.is_vehicle(other):
                 continue
-            if self._near_line(other, line, 140.0) and other.speed <= 5.0:
+            if self._near_line(other, line, 140.0) and (other.speed_mps or 0.0) <= 1.0:
                 return True
         return False
 
@@ -190,13 +222,18 @@ class RuleEngine:
         scene = self._scene(state)
         if not getattr(scene, "has_road", False):
             return self._inactive(label)
+        # "Stationary" in the task definition, so the threshold is a real speed.
+        # 0.6 m/s is about 2 km/h: slow enough to exclude crawling traffic.
+        threshold = float(cfg.get("speed_mps", 0.6))
         active_keys: set[tuple[Any, ...]] = set()
         for track in state.tracks:
             if not TrackManager.is_vehicle(track) or not self._road_track(track, scene):
                 continue
-            stopped = track.speed <= float(cfg.get("speed", 3.0))
+            speed = track.speed_mps
+            if speed is None:
+                continue
             key = (label, track.track_id)
-            if not stopped or self._queued_at_signal(track, state):
+            if speed > threshold or self._queued_at_signal(track, state):
                 self._condition_start.pop(key, None)
                 continue
             active_keys.add(key)
@@ -207,7 +244,7 @@ class RuleEngine:
                     label,
                     True,
                     confidence=0.9,
-                    evidence={"track_id": track.track_id, "stopped_since": since},
+                    evidence={"track_id": track.track_id, "stopped_since": round(since, 2)},
                     start_hint=since,
                 )
         self._retain_conditions(label, active_keys)
@@ -230,10 +267,15 @@ class RuleEngine:
                 # annotated, but it is still gated by road geometry.
                 key = ("direction", 1 if track.velocity[1] >= 0 else -1)
             groups.setdefault(key, []).append(track)
+        # "Standstill or crawling": 2.2 m/s is roughly 8 km/h, the usual
+        # definition of congested flow. Expressed physically so the same value
+        # works at any source resolution.
+        crawl_mps = float(cfg.get("crawl_mps", 2.2))
+        minimum = int(cfg.get("min_vehicles", 4))
         active_keys: set[tuple[Any, ...]] = set()
         for key, tracks in groups.items():
-            slow = [track for track in tracks if track.speed <= float(cfg.get("speed", 8.0))]
-            if len(tracks) < int(cfg.get("min_vehicles", 4)) or len(slow) < int(cfg.get("min_vehicles", 4)):
+            slow = [track for track in tracks if (track.speed_mps or 0.0) <= crawl_mps]
+            if len(tracks) < minimum or len(slow) < minimum:
                 continue
             condition_key = (label, key)
             active_keys.add(condition_key)
@@ -243,7 +285,7 @@ class RuleEngine:
                 return RuleSignal(
                     label,
                     True,
-                    confidence=min(1.0, len(slow) / max(1, int(cfg.get("min_vehicles", 4))) * 0.7),
+                    confidence=min(1.0, len(slow) / max(1, minimum) * 0.7),
                     evidence={"group": repr(key), "vehicles": len(tracks), "slow": len(slow)},
                     start_hint=since,
                 )
@@ -484,55 +526,79 @@ class RuleEngine:
     def _interaction_rule(self, state: FrameState, label: str) -> RuleSignal:
         cfg = self._rule_config(label)
         road_users = [track for track in state.tracks if TrackManager.is_road_user(track)]
+        active_keys: set[tuple[Any, ...]] = set()
         for i, first in enumerate(road_users):
             for second in road_users[i + 1 :]:
-                if not (
-                    TrackManager.is_vehicle(first)
-                    or TrackManager.is_person(first)
-                    or TrackManager.is_vehicle(second)
-                    or TrackManager.is_person(second)
-                ):
-                    continue
                 key = (label, first.track_id, second.track_id)
-                distance = TrackManager.center_distance(first, second)
-                ttc = TrackManager.time_to_collision(first, second)
-                relative_speed = TrackManager.relative_speed(first, second)
+                gap = self._gap_m(first, second)
                 overlap = bbox_iou(first.bbox, second.bbox)
+                closing = self._closing_speed_mps(first, second)
+                ttc = TrackManager.time_to_collision(first, second)
+                evidence = {
+                    "first_id": first.track_id,
+                    "second_id": second.track_id,
+                    "gap_m": None if gap is None else round(gap, 2),
+                    "closing_mps": round(closing, 2),
+                    "overlap": round(overlap, 3),
+                }
+
                 if label == "near_miss":
-                    evasive = (
-                        self._deceleration(first) > 18.0
-                        or self._deceleration(second) > 18.0
-                        or max(first.acceleration_magnitude, second.acceleration_magnitude) > 35.0
+                    # An evasive manoeuvre is a transient: someone brakes or
+                    # swerves, and a moment later the road users are clear of
+                    # each other. Requiring an actual deceleration is what
+                    # separates this from two cars merely driving near each
+                    # other, which happens constantly in dense traffic.
+                    evasive = max(self._deceleration(first), self._deceleration(second))
+                    side_swipe = abs(first.center[0] - second.center[0]) > 0.25 * max(
+                        first.width, second.width, 1.0
                     )
                     condition = (
-                        ttc is not None
-                        and 0.0 < ttc <= float(cfg.get("ttc", 2.5))
-                        and distance <= float(cfg.get("distance", 120.0))
-                        and relative_speed > 8.0
-                        and evasive
+                        evasive >= float(cfg.get("deceleration_mps2", 2.5))
+                        and closing >= float(cfg.get("closing_mps", 2.0))
+                        and (
+                            (gap is not None and gap <= float(cfg.get("gap_m", 3.0)))
+                            or overlap > float(cfg.get("overlap", 0.02))
+                        )
+                        and (side_swipe or ttc is None or ttc <= float(cfg.get("ttc", 2.0)))
                     )
-                    evidence = {
-                        "first_id": first.track_id,
-                        "second_id": second.track_id,
-                        "ttc": ttc,
-                        "distance": distance,
-                    }
+                    evidence["deceleration_mps2"] = round(evasive, 2)
                 else:  # accident
-                    abrupt = max(first.acceleration_magnitude, second.acceleration_magnitude) > 45.0
-                    condition = (
-                        (overlap > 0.08 or distance <= float(cfg.get("distance", 55.0)))
-                        and (relative_speed > 12.0 or abrupt)
+                    # Contact is a geometric fact, not a speed threshold: once
+                    # two bodies overlap, they overlap. Requiring closing speed
+                    # at the moment of contact is what used to make this rule
+                    # fire on ordinary following distance, and it also made it
+                    # stop firing at the collision itself, because both
+                    # vehicles decelerate hard on impact.
+                    if gap is None:
+                        continue
+                    contact = gap <= float(cfg.get("contact_gap_m", 0.6)) or overlap > float(
+                        cfg.get("overlap", 0.05)
                     )
-                    evidence = {
-                        "first_id": first.track_id,
-                        "second_id": second.track_id,
-                        "distance": distance,
-                        "overlap": overlap,
-                    }
+                    # A real collision involves at least one heavy road user;
+                    # a pedestrian brushing a bin is not an accident.
+                    heavy = any(
+                        TrackManager.is_vehicle(t) for t in (first, second)
+                    ) or self._special(first, ("bicycle", "motorcycle", "bike"))
+                    relative = self._closing_speed_mps(first, second)
+                    impact = (
+                        relative >= float(cfg.get("impact_closing_mps", 1.5))
+                        or max(
+                            first.acceleration_mps2 or 0.0, second.acceleration_mps2 or 0.0
+                        ) >= float(cfg.get("impact_decel_mps2", 4.0))
+                    )
+                    condition = contact and heavy and impact
+                    evidence["relative_mps"] = round(relative, 2)
+
                 since = self._condition_since(key, condition, state.timestamp)
-                if condition and since is not None and state.timestamp - since <= float(cfg.get("hold", 0.8)) + 1.0:
+                if not condition:
+                    continue
+                active_keys.add(key)
+                # A sustained condition is one event, not a new one per frame:
+                # the onset is remembered, and the signal is only emitted while
+                # the pair is still inside the event window.
+                if since is not None and state.timestamp - since <= float(cfg.get("hold", 2.0)):
                     return RuleSignal(label, True, confidence=0.75, evidence=evidence, start_hint=since)
-        self._condition_start = {k: v for k, v in self._condition_start.items() if k[0] != label}
+        self._retain_conditions(label, active_keys)
         return self._inactive(label)
 
     def _near_miss(self, state: FrameState) -> RuleSignal:

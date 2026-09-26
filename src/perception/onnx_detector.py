@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -64,9 +65,20 @@ class OnnxDetector:
                 providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         key = (str(self.model_path.resolve()), self.imgsz)
         if key not in self._sessions:
-            self._sessions[key] = ort.InferenceSession(
-                str(self.model_path), providers=providers
-            )
+            session = None
+            if providers[0] != "CPUExecutionProvider":
+                # A CUDA provider that is listed but cannot actually load its
+                # shared libraries is a common failure on fresh hosts. Falling
+                # back to CPU keeps the submission alive instead of raising.
+                try:
+                    session = ort.InferenceSession(str(self.model_path), providers=providers)
+                except Exception as exc:  # pragma: no cover - host dependent
+                    warnings.warn(f"CUDAExecutionProvider unavailable ({exc}); using CPU")
+            if session is None:
+                session = ort.InferenceSession(
+                    str(self.model_path), providers=["CPUExecutionProvider"]
+                )
+            self._sessions[key] = session
         session = self._sessions[key]
         self.active_providers = session.get_providers()
         meta = session.get_modelmeta().custom_metadata_map or {}
