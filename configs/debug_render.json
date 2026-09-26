@@ -1,0 +1,10 @@
+{
+  "_comment": "Debug rendering config. Renders an annotated .mp4 plus a per-frame JSONL so a run can be inspected rather than trusted. Select it with TRAFFIC_CONFIG=configs/debug_render.json. It extends the tuned runtime config so that a partial override cannot silently fall back to the duplicated built-in defaults in src/config.py -- which is how an earlier version of this file quietly ran with different thresholds than the ones that had been measured.",
+  "extends": "default.json",
+  "debug": {
+    "enabled": true,
+    "write_video": true,
+    "dump_jsonl": true,
+    "output_dir": "debug"
+  }
+}

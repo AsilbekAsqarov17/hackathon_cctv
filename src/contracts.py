@@ -31,7 +31,25 @@ REFERENCE_HEIGHT_M: dict[str, float] = {
 }
 DEFAULT_REFERENCE_HEIGHT_M = 1.50
 
-# Below this the box is too small for its height to carry scale information.
+# Nominal real-world lengths. For a road vehicle under this camera the horizontal
+# extent of the box is dominated by the vehicle's length, not its height, so
+# length is the right reference for the width. Using height here understated the
+# scale by roughly 3x on a car and made every distance threshold in the rule set
+# three times too permissive.
+REFERENCE_LENGTH_M: dict[str, float] = {
+    "car": 4.50,
+    "vehicle": 4.50,
+    "taxi": 4.50,
+    "van": 5.00,
+    "truck": 9.00,
+    "bus": 12.00,
+    "motorcycle": 2.10,
+    "motorbike": 2.10,
+    "bicycle": 1.80,
+    "bike": 1.80,
+}
+
+# Below this the box is too small for its size to carry scale information.
 _MIN_BOX_FOR_SCALE_PX = 6.0
 
 
@@ -108,19 +126,26 @@ class TrackState:
 
     @property
     def metres_per_pixel(self) -> float | None:
-        """Image scale at this track's distance, from its apparent height.
+        """Image scale at this track's distance, from its apparent size.
 
         Returns ``None`` for boxes too small to measure. Callers should treat
         that as "scale unknown" rather than falling back to a pixel constant,
         because a silent fallback is exactly the bug this replaces.
         """
-        apparent = max(self.width, self.height)
-        if apparent < _MIN_BOX_FOR_SCALE_PX:
+        name = self.class_name.lower().replace("-", "_")
+        if max(self.width, self.height) < _MIN_BOX_FOR_SCALE_PX:
             return None
-        reference = REFERENCE_HEIGHT_M.get(self.class_name.lower().replace("-", "_"))
-        if reference is None:
-            reference = DEFAULT_REFERENCE_HEIGHT_M
-        return reference / apparent
+        if name in {"person", "pedestrian"} or self.class_id == 0:
+            # A person's box is dominated by their standing height.
+            if self.height < _MIN_BOX_FOR_SCALE_PX:
+                return None
+            return REFERENCE_HEIGHT_M.get(name, 1.70) / self.height
+        length = REFERENCE_LENGTH_M.get(name)
+        if length is not None and self.width >= _MIN_BOX_FOR_SCALE_PX:
+            # A road vehicle seen by this camera is wider than it is tall, and
+            # that width is its length projected into the image.
+            return length / self.width
+        return DEFAULT_REFERENCE_HEIGHT_M / max(self.width, self.height)
 
     @property
     def speed_mps(self) -> float | None:

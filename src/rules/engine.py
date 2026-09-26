@@ -219,36 +219,45 @@ class RuleEngine:
                 return True
         return False
 
-    def _queued_ahead(self, track: TrackState, state: FrameState) -> bool:
-        """True when other slow vehicles line up ahead of this one.
+    def _in_a_queue(self, track: TrackState, state: FrameState) -> bool:
+        """True when this stopped vehicle is part of a cluster of stopped ones.
 
         The task excludes "a queue at a signal" from `stopped_vehicle`. Detecting
         a signal queue geometrically needs stop lines, which are the least
         reliable part of the scene calibration. The queue itself is easier to
-        see than the signal: if several other slow vehicles sit in a line ahead
-        of this one along its direction of travel, it is waiting its turn, not
-        broken down. This needs no geometry at all.
+        see than the signal: a queue is a dense group of stationary vehicles, a
+        broken-down car is alone. That test needs no geometry, and it is
+        deliberately heading-free.
+
+        Two earlier versions of this test failed, both for the same reason: they
+        used the stopped vehicle's own heading to decide who was "ahead". A
+        stationary vehicle has no heading -- its velocity is sensor jitter, so
+        the direction is essentially random each frame, and in dense traffic
+        some stopped car is always in whatever direction that points. The first
+        version compounded it by using the other vehicle's own width as the
+        lateral tolerance, about 245 px here, which made the test always true and
+        suppressed the single real event in the dev set.
         """
-        heading = normalized_vector(track.velocity)
-        if heading is None:
-            return False
-        ahead = 0
+        cfg = self._rule_config("stopped_vehicle")
+        stopped_mps = float(cfg.get("speed_mps", 0.6))
+        # Roughly two car lengths. A queue packs tighter than this; a stranded
+        # vehicle in an open junction has nothing within it.
+        radius = float(cfg.get("queue_radius_m", 7.0))
+        scales = [s for s in (track.metres_per_pixel,) if s]
         for other in state.tracks:
             if other.track_id == track.track_id or not TrackManager.is_vehicle(other):
                 continue
-            if (other.speed_mps or 0.0) > float(self._rule_config("stopped_vehicle").get("speed_mps", 0.6)):
+            if (other.speed_mps or 0.0) > stopped_mps:
                 continue
-            dx = other.center[0] - track.center[0]
-            dy = other.center[1] - track.center[1]
-            forward = dx * heading[0] + dy * heading[1]
-            if forward <= 0:
+            scale = track.metres_per_pixel
+            if scale is None:
                 continue
-            # Roughly alongside rather than in front: a car in the next lane
-            # is not evidence of a queue.
-            lateral = abs(dx * heading[1] - dy * heading[0])
-            if forward > 0 and lateral <= max(other.width, 12.0):
-                ahead += 1
-        return ahead > 0
+            gap = math.hypot(
+                other.center[0] - track.center[0], other.center[1] - track.center[1]
+            ) * scale
+            if gap <= radius:
+                return True
+        return False
 
     def _stopped_vehicle(self, state: FrameState) -> RuleSignal:
         label = "stopped_vehicle"
@@ -267,7 +276,7 @@ class RuleEngine:
             if speed is None:
                 continue
             key = (label, track.track_id)
-            if speed > threshold or self._queued_at_signal(track, state) or self._queued_ahead(track, state):
+            if speed > threshold or self._queued_at_signal(track, state) or self._in_a_queue(track, state):
                 self._condition_start.pop(key, None)
                 continue
             active_keys.add(key)

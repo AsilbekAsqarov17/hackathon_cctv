@@ -32,7 +32,8 @@
     "stopped_vehicle": {
       "enabled": true,
       "speed_mps": 0.6,
-      "duration": 10.0
+      "duration": 10.0,
+      "queue_radius_m": 7.0
     },
     "congestion": {
       "enabled": true,
@@ -99,15 +100,19 @@
   "risk": {
     "horizon_sec": 5.0,
     "detector_stride": 5,
-    "ttc_floor": 0.45,
+    "ttc_floor": 0.3,
     "near_distance_px": 180.0,
     "pedestrian_distance_px": 140.0,
     "closing_speed_scale": 180.0,
     "deceleration_scale": 80.0,
     "decay": 0.85,
-    "accident_boost": 0.9,
-    "near_miss_boost": 0.68,
-    "wrong_way_boost": 0.58
+    "accident_boost": 0.45,
+    "near_miss_boost": 0.4,
+    "wrong_way_boost": 0.55,
+    "conflict_ttc_sec": 1.5,
+    "conflict_closing_mps": 3.0,
+    "conflict_braking_mps2": 3.0,
+    "conflict_base": 0.55
   },
   "temporal": {
     "merge_gap": {

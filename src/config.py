@@ -98,6 +98,13 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
 
     JSON is the default because it is part of the Python standard library and
     therefore works in the offline harness without another dependency.
+
+    A config may declare ``"extends": "<relative path>"`` to inherit from
+    another. This exists because ``DEFAULT_CONFIG`` above duplicates
+    ``configs/default.json``, and the two drift: a partial config that omits
+    ``rules`` silently falls back to the built-in copy rather than to the tuned
+    one, so the run uses different thresholds from the ones that were measured.
+    Anything that only wants to change one section should say so explicitly.
     """
     config = copy.deepcopy(DEFAULT_CONFIG)
     if not path:
@@ -109,6 +116,25 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
             path = project_candidate
     if not path.exists():
         raise FileNotFoundError(f"configuration not found: {path}")
+    loaded = _read_config_file(path)
+
+    parent_ref = loaded.pop("extends", None)
+    if parent_ref:
+        parent_path = Path(parent_ref)
+        if not parent_path.is_absolute():
+            parent_path = path.parent / parent_path
+        if not parent_path.exists():
+            project_candidate = Path(__file__).resolve().parents[1] / parent_ref
+            if project_candidate.exists():
+                parent_path = project_candidate
+        if not parent_path.exists():
+            raise FileNotFoundError(f"configuration extends a missing file: {parent_ref}")
+        config = _deep_merge(config, _read_config_file(parent_path))
+
+    return _deep_merge(config, loaded)
+
+
+def _read_config_file(path: Path) -> dict[str, Any]:
     text = path.read_text(encoding="utf-8-sig")
     if path.suffix.lower() in {".yaml", ".yml"}:
         try:
@@ -120,7 +146,7 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
         loaded = json.loads(text)
     if not isinstance(loaded, dict):
         raise ValueError("configuration root must be an object")
-    return _deep_merge(config, loaded)
+    return loaded
 
 
 def apply_environment_overrides(config: dict[str, Any]) -> dict[str, Any]:

@@ -134,7 +134,15 @@ class PartAPipeline:
             if self.write_debug_video:
                 output_path = self.debug_dir / f"{Path(video_path).stem}_part_a.mp4"
                 fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-                writer = cv2.VideoWriter(str(output_path), fourcc, max(1.0, info.fps), (info.width, info.height))
+                # The loop only yields every `stride`-th frame, but the writer is
+                # told the source frame rate, so the rendered clip plays back
+                # `stride` times too fast -- which is actively misleading when
+                # the point of the render is to judge whether a detection is
+                # right. Declare the rate the frames are actually written at.
+                render_fps = max(1.0, info.fps / max(1, stride))
+                writer = cv2.VideoWriter(
+                    str(output_path), fourcc, render_fps, (info.width, info.height)
+                )
             if self.dump_jsonl:
                 flags_file = (self.debug_dir / f"{Path(video_path).stem}_flags.jsonl").open("w", encoding="utf-8")
         processed = 0
@@ -152,7 +160,10 @@ class PartAPipeline:
                     # Falling below 1.0 means we will overrun at the current
                     # rate, so widen the sampling rather than run out of clock.
                     affordable = remaining_time / max(1e-6, remaining_frames / max(1e-6, info.fps))
-                    if affordable < 1.0 and stride < max_stride:
+                    # A rendered debug clip is for inspection, not for the timed
+                    # submission path, and its declared frame rate assumes a
+                    # constant stride. Freezing it keeps the render honest.
+                    if affordable < 1.0 and stride < max_stride and not self.debug_enabled:
                         stride = min(max_stride, max(stride + 1, int(stride * (1.0 / max(0.05, affordable)))))
                         warnings.warn(
                             f"Part A behind schedule; detector stride widened to {stride}"

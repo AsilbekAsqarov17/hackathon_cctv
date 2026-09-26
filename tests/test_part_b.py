@@ -51,9 +51,31 @@ class PartBTests(unittest.TestCase):
         self.assertLess(result.min_ttc, 5.0)
         self.assertGreater(result.max_closing_speed, 0.0)
 
-    def test_close_ttc_can_trigger_alarm_score(self) -> None:
-        score = _score_features(feature(0.0, 0.5, 20.0), 0.0, {"ttc_floor": 0.45})
-        self.assertGreaterEqual(score, 0.5)
+    def test_close_ttc_alone_must_not_alarm(self) -> None:
+        """Regression guard: a short TTC by itself is not a risk signal.
+
+        Measured on ordinary traffic containing no accident, 8.9% of all
+        road-user pairs already predict contact within 0.5 s, because a car
+        following a queue always extrapolates to contact. A scorer that alarms
+        on TTC alone therefore sits above the threshold almost permanently, and
+        chance-normalised AP scores a constant signal exactly zero.
+        """
+        score = _score_features(feature(0.0, ttc=0.4, distance=20.0), 0.0, {})
+        self.assertLess(score, 0.5)
+
+    def test_conflict_signature_raises_an_alarm(self) -> None:
+        """Short predicted contact plus approach speed plus braking does alarm."""
+        hot = feature(0.0, ttc=0.4, distance=20.0)
+        hot["max_closing_speed"] = 400.0
+        hot["max_deceleration"] = 60.0
+        self.assertGreaterEqual(_score_features(hot, 0.0, {}), 0.5)
+
+    def test_ordinary_approach_does_not_alarm(self) -> None:
+        """Approach and braking together, the queueing case, stays quiet."""
+        queue = feature(0.0, ttc=1.2, distance=60.0)
+        queue["max_closing_speed"] = 200.0
+        queue["max_deceleration"] = 30.0
+        self.assertLess(_score_features(queue, 0.0, {}), 0.5)
 
     def test_part_a_cache_is_never_consulted(self) -> None:
         """Part B must not read Part A output, even if a cache is handed to it.
