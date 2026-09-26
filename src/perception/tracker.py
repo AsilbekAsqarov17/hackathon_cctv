@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from scipy.optimize import linear_sum_assignment
 
 from ..contracts import BBox, Detection, TrackObservation
 from ..scene.geometry import bbox_iou, normalized_vector, vector_dot
@@ -15,14 +16,27 @@ from ..scene.geometry import bbox_iou, normalized_vector, vector_dot
 @dataclass
 class _Track:
     track_id: int
-    bbox: BBox
+    bbox: BBox  # (x1, y1, x2, y2)
     score: float
     class_id: int
     class_name: str
-    velocity: tuple[float, float]
+    velocity: tuple[float, float]  # pixels per frame (vx, vy) for center
     last_frame: int
     hits: int = 1
     missed: int = 0
+
+    def predicted_bbox(self, frame_id: int) -> BBox:
+        dt = max(0, frame_id - self.last_frame)
+        if dt == 0 or (self.velocity[0] == 0.0 and self.velocity[1] == 0.0):
+            return self.bbox
+        dx = self.velocity[0] * dt
+        dy = self.velocity[1] * dt
+        return (
+            self.bbox[0] + dx,
+            self.bbox[1] + dy,
+            self.bbox[2] + dx,
+            self.bbox[3] + dy,
+        )
 
 
 class SimpleByteTracker:
@@ -45,13 +59,23 @@ class SimpleByteTracker:
     def _center(self, bbox: BBox) -> tuple[float, float]:
         return ((bbox[0] + bbox[2]) / 2.0, (bbox[1] + bbox[3]) / 2.0)
 
-    def _cost(self, track: _Track, detection: Detection, frame_shape: tuple[int, ...]) -> float:
-        iou = bbox_iou(track.bbox, detection.bbox)
-        tc = self._center(track.bbox)
+    def _cost(self, track: _Track, detection: Detection, frame_id: int, frame_shape: tuple[int, ...]) -> float:
+        pred_bbox = track.predicted_bbox(frame_id)
+        iou_pred = bbox_iou(pred_bbox, detection.bbox)
+        iou_last = bbox_iou(track.bbox, detection.bbox)
+        iou = max(iou_pred, iou_last)
+
+        tc = self._center(pred_bbox)
         dc = self._center(detection.bbox)
         h, w = frame_shape[:2]
-        distance = math.hypot(tc[0] - dc[0], tc[1] - dc[1]) / max(1.0, math.hypot(w, h))
-        return 1.0 - 0.65 * iou - 0.35 * distance
+        diag = max(1.0, math.hypot(w, h))
+        distance = math.hypot(tc[0] - dc[0], tc[1] - dc[1]) / diag
+
+        # Class matching penalty if classes disagree
+        class_penalty = 0.0 if (track.class_id == detection.class_id or track.class_name == detection.class_name) else 0.25
+
+        cost = (1.0 - 0.7 * iou - 0.3 * (1.0 - min(1.0, distance * 5.0))) + class_penalty
+        return max(0.0, cost)
 
     def _match(
         self,
@@ -59,24 +83,50 @@ class SimpleByteTracker:
         detections: list[Detection],
         frame_id: int,
         frame_shape: tuple[int, ...],
+        match_thresh: float | None = None,
     ) -> tuple[list[tuple[_Track, Detection]], list[_Track], list[Detection]]:
-        pairs: list[tuple[float, int, int]] = []
+        if not tracks or not detections:
+            return [], tracks, detections
+
+        threshold = self.match_threshold if match_thresh is None else match_thresh
+
+        num_tracks = len(tracks)
+        num_dets = len(detections)
+        cost_matrix = np.full((num_tracks, num_dets), 1e5, dtype=np.float32)
+
         for ti, track in enumerate(tracks):
+            pred_bbox = track.predicted_bbox(frame_id)
             for di, detection in enumerate(detections):
-                iou = bbox_iou(track.bbox, detection.bbox)
-                if iou >= self.match_threshold:
-                    cost = self._cost(track, detection, frame_shape)
-                    pairs.append((cost, ti, di))
-        pairs.sort(key=lambda item: item[0])
+                iou_pred = bbox_iou(pred_bbox, detection.bbox)
+                iou_last = bbox_iou(track.bbox, detection.bbox)
+                best_iou = max(iou_pred, iou_last)
+                
+                # Check center distance normalized by box size
+                tc = self._center(pred_bbox)
+                dc = self._center(detection.bbox)
+                tw = max(1.0, pred_bbox[2] - pred_bbox[0])
+                th = max(1.0, pred_bbox[3] - pred_bbox[1])
+                dist_normalized = math.hypot((tc[0] - dc[0]) / tw, (tc[1] - dc[1]) / th)
+
+                # Gate association: must have some overlap or be very close
+                if best_iou >= threshold or dist_normalized <= 1.2:
+                    cost_matrix[ti, di] = self._cost(track, detection, frame_id, frame_shape)
+
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
+        matches: list[tuple[_Track, Detection]] = []
         used_tracks: set[int] = set()
         used_detections: set[int] = set()
-        matches: list[tuple[_Track, Detection]] = []
-        for _, ti, di in pairs:
-            if ti in used_tracks or di in used_detections:
-                continue
-            used_tracks.add(ti)
-            used_detections.add(di)
-            matches.append((tracks[ti], detections[di]))
+
+        # Maximum acceptable cost for a valid assignment
+        max_cost = 1.0 - (0.5 * threshold)
+
+        for r, c in zip(row_ind, col_ind):
+            if cost_matrix[r, c] <= max_cost:
+                matches.append((tracks[r], detections[c]))
+                used_tracks.add(r)
+                used_detections.add(c)
+
         remaining_tracks = [t for i, t in enumerate(tracks) if i not in used_tracks]
         remaining_detections = [d for i, d in enumerate(detections) if i not in used_detections]
         return matches, remaining_tracks, remaining_detections
@@ -87,7 +137,9 @@ class SimpleByteTracker:
         new_center = ((detection.bbox[0] + detection.bbox[2]) / 2.0, (detection.bbox[1] + detection.bbox[3]) / 2.0)
         dt = max(1, frame_id - track.last_frame)
         raw_velocity = ((new_center[0] - old_center[0]) / dt, (new_center[1] - old_center[1]) / dt)
-        alpha = 0.65
+        
+        # Adaptive velocity smoothing: if previously stationary, take new velocity faster
+        alpha = 0.5 if track.hits > 1 else 0.8
         velocity = (
             alpha * raw_velocity[0] + (1.0 - alpha) * track.velocity[0],
             alpha * raw_velocity[1] + (1.0 - alpha) * track.velocity[1],
@@ -119,7 +171,10 @@ class SimpleByteTracker:
         # A second pass associates low-confidence detections with tracks that
         # missed the high-confidence pass, as in ByteTrack's low-score stage.
         if low and remaining_tracks:
-            low_matches, still_remaining, _ = self._match(remaining_tracks, low, frame_id, shape)
+            # Slightly lower match threshold for second stage association
+            low_matches, still_remaining, _ = self._match(
+                remaining_tracks, low, frame_id, shape, match_thresh=max(0.15, self.match_threshold * 0.7)
+            )
             for track, detection in low_matches:
                 self._update_track(track, detection, frame_id)
             remaining_tracks = still_remaining

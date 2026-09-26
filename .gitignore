@@ -25,3 +25,4 @@ data/review/
 
 # Run logs from local benchmarking.
 data/inspection/*.log
+.venv

@@ -86,6 +86,8 @@ class PartAPipeline:
     ) -> np.ndarray:
         output = frame.copy()
         for track in state.tracks:
+            if track.missed_frames > 0:
+                continue
             x1, y1, x2, y2 = [int(v) for v in track.bbox]
             color = (0, 220, 0) if track.class_name.lower() == "person" else (0, 180, 255)
             cv2.rectangle(output, (x1, y1), (x2, y2), color, 2)
