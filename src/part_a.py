@@ -28,12 +28,13 @@ ROOT = Path(__file__).resolve().parents[1]
 class PartAPipeline:
     """Complete offline Part A pipeline for one video."""
 
-    def __init__(self, config_path: str | Path | None = None):
+    def __init__(self, config_path: str | Path | None = None, deadline_seconds: float | None = None):
         selected = config_path or os.getenv("TRAFFIC_CONFIG")
         if not selected:
             default = ROOT / "configs" / "default.json"
             selected = default if default.exists() else None
         self.config: dict[str, Any] = apply_environment_overrides(load_config(selected))
+        self.deadline_seconds = deadline_seconds
         self.detector_config = self.config.get("detector", {})
         self.tracker_config = self.config.get("tracker", {})
         active = self.config.get("active_classes", OFFICIAL_LABELS)
@@ -111,7 +112,21 @@ class PartAPipeline:
         manager = TrackManager(max_age_seconds=2.0)
         analytics = TrafficAnalytics()
         segmenter = TemporalSegmenter(self.config.get("temporal", {}), duration=duration)
-        stride = max(1, int(self.detector_config.get("stride", 3)))
+        base_stride = max(1, int(self.detector_config.get("stride", 3)))
+        max_stride = max(base_stride, int(self.config.get("runtime", {}).get("max_stride", 12)))
+        stride = base_stride
+
+        # The harness allows three times the video duration for Part A and
+        # Part B together, and a video that overruns is scored as empty --
+        # worse than predicting nothing, because the work is thrown away. This
+        # pipeline cannot see the harness budget, so it sets its own from the
+        # duration and keeps the sampling rate honest against the clock.
+        budget = self.deadline_seconds
+        if budget is None:
+            budget = float(duration) * float(
+                self.config.get("runtime", {}).get("part_a_budget_factor", 1.3)
+            )
+        deadline = time.perf_counter() + max(5.0, budget)
         writer: cv2.VideoWriter | None = None
         flags_file = None
         if self.debug_enabled:
@@ -125,9 +140,23 @@ class PartAPipeline:
         processed = 0
         last_timestamp = 0.0
         perception_warned = False
+        next_deadline_check = 200
         try:
             for frame_id, timestamp, frame in reader.frames(stride=stride):
                 last_timestamp = timestamp
+                if frame_id >= next_deadline_check:
+                    next_deadline_check = frame_id + 200
+                    remaining_frames = max(1, int(info.frame_count) - frame_id)
+                    remaining_time = deadline - time.perf_counter()
+                    # Seconds still affordable per remaining second of video.
+                    # Falling below 1.0 means we will overrun at the current
+                    # rate, so widen the sampling rather than run out of clock.
+                    affordable = remaining_time / max(1e-6, remaining_frames / max(1e-6, info.fps))
+                    if affordable < 1.0 and stride < max_stride:
+                        stride = min(max_stride, max(stride + 1, int(stride * (1.0 / max(0.05, affordable)))))
+                        warnings.warn(
+                            f"Part A behind schedule; detector stride widened to {stride}"
+                        )
                 try:
                     detections = detector.predict(frame)
                 except Exception as exc:
