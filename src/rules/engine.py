@@ -48,6 +48,9 @@ class RuleEngine:
         self._wrong_way_counts: dict[int, int] = {}
         self._red_fired: dict[tuple[int, str], float] = {}
         self._last_evidence: dict[str, dict[str, Any]] = {}
+        # Per-pair contact history for accident: was this pair touching a moment
+        # ago? A collision is a transition, a queue is a steady state.
+        self._contact: dict[tuple[Any, ...], tuple[float, bool]] = {}
 
     def _rule_config(self, label: str) -> dict[str, Any]:
         value = self.config.get(label, {})
@@ -570,6 +573,7 @@ class RuleEngine:
                     # stop firing at the collision itself, because both
                     # vehicles decelerate hard on impact.
                     if gap is None:
+                        self._contact.pop(key, None)
                         continue
                     contact = gap <= float(cfg.get("contact_gap_m", 0.6)) or overlap > float(
                         cfg.get("overlap", 0.05)
@@ -579,15 +583,29 @@ class RuleEngine:
                     heavy = any(
                         TrackManager.is_vehicle(t) for t in (first, second)
                     ) or self._special(first, ("bicycle", "motorcycle", "bike"))
-                    relative = self._closing_speed_mps(first, second)
-                    impact = (
-                        relative >= float(cfg.get("impact_closing_mps", 1.5))
-                        or max(
-                            first.acceleration_mps2 or 0.0, second.acceleration_mps2 or 0.0
-                        ) >= float(cfg.get("impact_decel_mps2", 4.0))
+
+                    # The decisive test is the *transition*. In dense traffic
+                    # adjacent cars overlap continuously while queueing, so
+                    # "these boxes overlap" is true for most of a red light and
+                    # means nothing. A collision is the pair going from
+                    # separated to touching, and the impact is then marked by
+                    # both road users shedding speed abruptly. Requiring that
+                    # edge is what separates a crash from a queue.
+                    was_contact, since_contact = self._contact.get(key, (0.0, False))
+                    self._contact[key] = (state.timestamp, contact)
+                    separated_before = (
+                        not was_contact
+                        or state.timestamp - since_contact >= float(cfg.get("settle_sec", 0.6))
                     )
-                    condition = contact and heavy and impact
-                    evidence["relative_mps"] = round(relative, 2)
+                    onset = contact and separated_before
+                    decel = max(self._deceleration(first), self._deceleration(second))
+                    impact = decel >= float(cfg.get("impact_decel_mps2", 4.0))
+                    if not contact:
+                        continue
+                    condition = heavy and (onset or impact)
+                    evidence["relative_mps"] = round(self._closing_speed_mps(first, second), 2)
+                    evidence["deceleration_mps2"] = round(decel, 2)
+                    evidence["onset"] = bool(onset)
 
                 since = self._condition_since(key, condition, state.timestamp)
                 if not condition:
@@ -598,6 +616,15 @@ class RuleEngine:
                 # the pair is still inside the event window.
                 if since is not None and state.timestamp - since <= float(cfg.get("hold", 2.0)):
                     return RuleSignal(label, True, confidence=0.75, evidence=evidence, start_hint=since)
+            # Forget pairs that no longer exist so the state cannot grow without
+            # bound over a long video.
+            if label == "accident":
+                live = {
+                    (label, first.track_id, second.track_id)
+                    for i, first in enumerate(road_users)
+                    for second in road_users[i + 1 :]
+                }
+                self._contact = {k: v for k, v in self._contact.items() if k in live}
         self._retain_conditions(label, active_keys)
         return self._inactive(label)
 

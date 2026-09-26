@@ -3,13 +3,27 @@
 ## Run through the official harness
 
 ```bash
-pip install -r requirements-part-a.txt
+pip install -r requirements.txt
 python run_submission.py --videos path/to/videos --out predictions.json --team team
 ```
 
-`RiskEstimator.step` is called for every frame. The Part A pass publishes only
-compact causal features; the Part B reader never uses a feature from a later
-timestamp.
+`RiskEstimator.step` is called for every frame. Part B is independent of Part A:
+it runs its own detector, tracker and rules on the frames it receives, opens no
+file, and reads nothing Part A produced. Between detector samples it repeats the
+previous features verbatim, which the task permits.
+
+## Timing
+
+The budget is 3x the video duration for Part A and Part B together. Measure
+before trusting that:
+
+```bash
+python scripts/benchmark_part_b.py data/samples_small
+```
+
+If a run approaches the budget, raise `risk.detector_stride` before touching
+anything else — it is the cheapest lever and Part B's features are smooth in
+time.
 
 ## Inspect a run
 

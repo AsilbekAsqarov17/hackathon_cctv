@@ -21,7 +21,17 @@ class TemporalSegmenter:
     def __init__(self, config: dict[str, Any] | None = None, duration: float = 0.0):
         config = config or {}
         self.duration = max(0.0, float(duration))
-        self.merge_gap = float(config.get("merge_gap", 1.0))
+        # merge_gap may be a single number or a per-class override. Repeated
+        # occurrences of one class close together are usually a single event
+        # seen from several angles or several road users at once, and the task's
+        # convention is to report those as one segment rather than many.
+        gap = config.get("merge_gap", 1.0)
+        if isinstance(gap, dict):
+            self.merge_gap = float(gap.get("default", 1.0))
+            self.merge_gap_by_class = {str(k): float(v) for k, v in gap.items() if k != "default"}
+        else:
+            self.merge_gap = float(gap)
+            self.merge_gap_by_class = {}
         durations = config.get("min_duration", {}) or {}
         self.min_duration = {str(k): float(v) for k, v in durations.items()}
         ceilings = config.get("max_duration", {}) or {}
@@ -46,14 +56,18 @@ class TemporalSegmenter:
                     )
                 )
 
+    def _gap_for(self, label: str) -> float:
+        return self.merge_gap_by_class.get(label, self.merge_gap)
+
     def _groups(self, label: str) -> list[list[_ActiveSample]]:
         samples = sorted(self._samples.get(label, []), key=lambda item: item.timestamp)
         if not samples:
             return []
+        gap = self._gap_for(label)
         groups: list[list[_ActiveSample]] = [[samples[0]]]
         for sample in samples[1:]:
             previous = groups[-1][-1]
-            if sample.timestamp - previous.timestamp <= self.merge_gap + 1e-6:
+            if sample.timestamp - previous.timestamp <= gap + 1e-6:
                 groups[-1].append(sample)
             else:
                 groups.append([sample])

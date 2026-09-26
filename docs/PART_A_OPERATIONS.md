@@ -4,8 +4,13 @@
 
 ```bash
 python -m pip install -r requirements.txt
-python -m pip install -r requirements-part-a.txt  # optional detector
 ```
+
+That is the whole install. The detector checkpoint is committed at
+`weights/yolo11n.onnx` and the default backend is ONNX Runtime, so no torch, no
+ultralytics and no download step is involved. `requirements-part-a.txt` is only
+needed for offline retraining or for the Ultralytics `.pt` backend, neither of
+which the runtime uses.
 
 ## Check runtime
 
