@@ -219,6 +219,37 @@ class RuleEngine:
                 return True
         return False
 
+    def _queued_ahead(self, track: TrackState, state: FrameState) -> bool:
+        """True when other slow vehicles line up ahead of this one.
+
+        The task excludes "a queue at a signal" from `stopped_vehicle`. Detecting
+        a signal queue geometrically needs stop lines, which are the least
+        reliable part of the scene calibration. The queue itself is easier to
+        see than the signal: if several other slow vehicles sit in a line ahead
+        of this one along its direction of travel, it is waiting its turn, not
+        broken down. This needs no geometry at all.
+        """
+        heading = normalized_vector(track.velocity)
+        if heading is None:
+            return False
+        ahead = 0
+        for other in state.tracks:
+            if other.track_id == track.track_id or not TrackManager.is_vehicle(other):
+                continue
+            if (other.speed_mps or 0.0) > float(self._rule_config("stopped_vehicle").get("speed_mps", 0.6)):
+                continue
+            dx = other.center[0] - track.center[0]
+            dy = other.center[1] - track.center[1]
+            forward = dx * heading[0] + dy * heading[1]
+            if forward <= 0:
+                continue
+            # Roughly alongside rather than in front: a car in the next lane
+            # is not evidence of a queue.
+            lateral = abs(dx * heading[1] - dy * heading[0])
+            if forward > 0 and lateral <= max(other.width, 12.0):
+                ahead += 1
+        return ahead > 0
+
     def _stopped_vehicle(self, state: FrameState) -> RuleSignal:
         label = "stopped_vehicle"
         cfg = self._rule_config(label)
@@ -236,7 +267,7 @@ class RuleEngine:
             if speed is None:
                 continue
             key = (label, track.track_id)
-            if speed > threshold or self._queued_at_signal(track, state):
+            if speed > threshold or self._queued_at_signal(track, state) or self._queued_ahead(track, state):
                 self._condition_start.pop(key, None)
                 continue
             active_keys.add(key)
@@ -602,8 +633,21 @@ class RuleEngine:
                     impact = decel >= float(cfg.get("impact_decel_mps2", 4.0))
                     if not contact:
                         continue
-                    condition = heavy and (onset or impact)
-                    evidence["relative_mps"] = round(self._closing_speed_mps(first, second), 2)
+                    # An onset alone is not enough. In a busy intersection some
+                    # pair of boxes is always touching, so "separated, then
+                    # touching" happens constantly among queued cars. What
+                    # separates a crash from a queue is that the pair was
+                    # closing on each other: adjacent stationary cars have a
+                    # closing speed near zero, a collision does not. Velocity is
+                    # exponentially smoothed, so it still carries the approach
+                    # speed on the frame contact is first seen.
+                    approach = self._closing_speed_mps(first, second)
+                    fast_approach = approach >= float(cfg.get("approach_closing_mps", 2.5))
+                    if onset:
+                        condition = heavy and fast_approach
+                    else:
+                        condition = heavy and impact
+                    evidence["approach_mps"] = round(approach, 2)
                     evidence["deceleration_mps2"] = round(decel, 2)
                     evidence["onset"] = bool(onset)
 

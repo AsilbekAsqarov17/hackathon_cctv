@@ -34,7 +34,7 @@
     "jaywalking": {"enabled": true, "duration": 1.0},
     "failure_to_yield": {"enabled": true, "hold": 0.8},
     "near_miss": {"enabled": true, "deceleration_mps2": 2.5, "closing_mps": 2.0, "gap_m": 3.0, "overlap": 0.02, "ttc": 2.0, "hold": 2.0},
-    "accident": {"enabled": true, "contact_gap_m": 0.6, "overlap": 0.05, "impact_decel_mps2": 4.0, "settle_sec": 0.6, "hold": 3.0},
+    "accident": {"enabled": true, "contact_gap_m": 0.6, "overlap": 0.05, "impact_decel_mps2": 4.0, "approach_closing_mps": 2.5, "settle_sec": 0.6, "hold": 3.0},
     "road_obstacle": {"enabled": true, "duration": 1.0},
     "fire_smoke": {"enabled": true, "duration": 0.5}
   },
