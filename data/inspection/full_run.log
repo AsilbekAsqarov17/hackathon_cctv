@@ -1,0 +1,2 @@
+/home/axumfa/H/hackathon_cctv/src/perception/tracker.py:286: UserWarning: official ByteTrack unavailable (official ByteTrack source is not importable); using fallback
+  warnings.warn(f"official ByteTrack unavailable ({exc}); using fallback")

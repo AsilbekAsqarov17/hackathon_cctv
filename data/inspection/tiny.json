@@ -1,0 +1,49 @@
+{
+ "team": "T",
+ "videos": {
+  "t15.mp4": {
+   "events": [
+    [
+     0.1,
+     14.982,
+     "congestion"
+    ],
+    [
+     1.301,
+     11.712,
+     "failure_to_yield"
+    ],
+    [
+     2.502,
+     11.411,
+     "jaywalking"
+    ],
+    [
+     4.404,
+     6.807,
+     "near_miss"
+    ],
+    [
+     6.506,
+     14.414,
+     "accident"
+    ],
+    [
+     13.213,
+     13.514,
+     "near_miss"
+    ]
+   ],
+   "risk": []
+  }
+ },
+ "log": {
+  "t15.mp4": {
+   "duration": 14.98,
+   "budget_sec": 44.9,
+   "errors": [],
+   "part_a_sec": 33.5,
+   "total_sec": 33.5
+  }
+ }
+}

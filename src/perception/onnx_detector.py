@@ -38,7 +38,7 @@ class OnnxDetector:
 
     def __init__(self, config: dict[str, Any]):
         self.config = config
-        self.model_path = Path(str(config.get("model", "yolo11n.onnx")))
+        self.model_path = self._resolve_model(str(config.get("model", "yolo11n.onnx")))
         if not self.model_path.exists():
             raise FileNotFoundError(f"ONNX model not found: {self.model_path}")
         self.imgsz = int(config.get("imgsz", 640))
@@ -47,6 +47,29 @@ class OnnxDetector:
         self.device = str(config.get("device", "0"))
         self.class_names = self._configured_names()
         self.session = self._get_session()
+
+    @staticmethod
+    def _resolve_model(name: str) -> Path:
+        """Find the checkpoint relative to the project, not the cwd.
+
+        A relative path silently resolved against the current working directory
+        turns a missing checkpoint into a NullDetector and therefore into zero
+        events for every video, while the run still passes the format check and
+        scores zero with no error anywhere. The organizers do run from the
+        repository root, but a demo, a notebook or an absolute-path invocation
+        should not depend on that.
+        """
+        path = Path(name).expanduser()
+        if path.is_absolute() or path.exists():
+            return path
+        for candidate in (
+            Path.cwd() / path,
+            Path(__file__).resolve().parents[2] / path,
+            Path(__file__).resolve().parents[2] / "weights" / path.name,
+        ):
+            if candidate.exists():
+                return candidate
+        return path
 
     def _configured_names(self) -> dict[int, str]:
         raw = self.config.get("class_names")
