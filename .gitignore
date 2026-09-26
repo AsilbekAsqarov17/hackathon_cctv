@@ -7,6 +7,15 @@ debug/
 *.mp4
 *.avi
 *.mov
+*.mkv
+# The organizer sample clips arrive as uppercase .MP4; gitignore patterns are
+# case-sensitive on Linux, so these would otherwise be committed (11.7 GB).
+*.MP4
+*.AVI
+*.MOV
+# Local development copies produced by scripts/shrink_samples.py.
+data/samples_small/
+data/samples*/
 # Keep the selected checkpoint under weights/ for offline submission.
 # Add other local checkpoints explicitly if they are not part of the release.
 predictions*.json
