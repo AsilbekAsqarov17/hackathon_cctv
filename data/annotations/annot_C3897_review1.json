@@ -1,0 +1,54 @@
+{
+  "video": "C3897_small.mp4",
+  "duration": 317.82,
+  "fps": 29.97,
+  "events": [
+    {
+      "label": "jaywalking",
+      "start": 0.0,
+      "end": 8.4,
+      "confidence": "high",
+      "observed_at": 2.0,
+      "note": "Man in a dark maroon T-shirt and white shoes walks briskly down-left across the wide carriageway on bare asphalt, consistently 0.5-1.5 m below/south of the adjacent marked yellow/white zebra crossing and past the pedestrian refuge island carrying the blue keep-right arrow sign - while other pedestrians are using that same crossing. He reaches the pink triangular traffic island kerb at ~7.0 s and steps up onto it by ~8.4 s. Start is CLIPPED by the clip boundary: he is already on the road outside the crossing in frame 0 (verified at 0.25 s steps on a 1:1 crop, source x 1150-1500 / y 450-660, where his feet track ~25 px to ~55 px below the lower edge of the stripe band)."
+    },
+    {
+      "label": "stopped_vehicle",
+      "start": 0.0,
+      "end": 25.1,
+      "confidence": "medium",
+      "observed_at": 13.01,
+      "note": "Dark grey Kia Carens MPV with headlights on and a driver visible in the front seat, stationary at approx source (1150-1410, 660-870) in the open paved junction area, from before t=0 until it pulls away at t=25.0-25.2. Objectively verified with a frame-difference probe on that box: mean abs diff <1.0 for every sample from t=0 to t=24.8, then 16.7 at t=25.2. Not at a kerb (no kerb or bay marking adjacent), nothing queued behind it, and the lane above it kept flowing. Start is CLIPPED by the clip boundary. Medium rather than high because the junction area is wide and unmarked, so 'on the carriageway' vs 'informal parking spot' is a judgement call."
+    },
+    {
+      "label": "congestion",
+      "start": 0.0,
+      "end": 21.0,
+      "confidence": "low",
+      "observed_at": 9.01,
+      "note": "LOW CONFIDENCE - THIS EVENT MAY BE REJECTABLE. A multi-lane standstill queue of 10+ vehicles (cars, minivans, taxis) fills the full width of the near-side carriageway at source x 250-900+ / y 280-480, stationary from t=0 to ~t=21 and starting to move at t=21-23. Frame-difference probe on the queue box: baseline ~3.0 from t=2 to t=20, rising from t=20.5, above 50 by t=24.5. The signal head facing this movement at source (250-290, 560-605) shows RED from t=0 to ~t=15 (pixel-sampled), so this is a RED-LIGHT QUEUE, not a spontaneous jam. The stated definition ('trail at a standstill across all lanes of one direction') is met literally, but any convention that excludes signal queues - as the spec does explicitly for stopped_vehicle - would drop this event."
+    }
+  ],
+  "notable_absence": [
+    "No accident / contact between road users anywhere in the clip. Reviewed every tile of all seven 2 s contact sheets, a full 1 fps pass over all 318 s, and dense zoom passes at t=0-10, 93-97, 182-200 and 284-317. No vehicle showed an abrupt in-lane stop, no debris, and no crowd gathered around a vehicle.",
+    "No road_obstacle: no debris, animal or dropped object was visible on any carriageway at any point in the clip.",
+    "No fire_smoke: no smoke, steam or flame was visible in any frame.",
+    "No wrong_way: all vehicles travelled in the direction of their lane; oncoming traffic stayed on its own side of the median throughout.",
+    "No illegal_u_turn observed - no vehicle made a U-turn at any point.",
+    "No confirmed red_light. I was able to build a coarse red/off timeline for two signal heads by pixel-sampling the lit lens, but neither head could be tied to a specific stop line at this camera angle, and I never saw a vehicle enter the junction against a red. Every signal-controlled queue I saw was stationary behind its stop line.",
+    "No near_miss. No sharp braking or swerving was visible in the sampled frames - but 0.25-0.5 s sampling genuinely cannot rule out brief evasive manoeuvres, so this is weak evidence of absence.",
+    "No failure_to_yield. Every pedestrian who entered the carriageway did so on a marked crossing except the one confirmed jaywalker, who crossed an empty stretch with no vehicle approaching.",
+    "No solid_line_crossing or illegal_turn that I could judge. Lane markings in the wide junction area are too worn and faint at 1920x1080 seen from this height to determine a lane change against a solid line.",
+    "The dense row of cars that sits at the top-left (source ~0-1050, y 255-495) throughout t=0-18 is a mix of parking and a signal queue, so I did not label any part of it as stopped_vehicle or congestion."
+  ],
+  "caveats": [
+    "All boundaries are accurate to about +/-1 s: the provided sheets are 2 s apart and my zoom sheets were 0.2-0.5 s apart.",
+    "Motion-dependent classes (accident, near_miss, illegal_turn, solid_line_crossing, wrong_way) are not decidable from 2 s stills at this camera height. I deliberately did not report them rather than invent precision.",
+    "The two signal heads I could sample are each a matrix of several aspects viewed at an oblique angle. I could separate 'red' from 'not red' but could not reliably separate red from amber, so my signal timeline is coarse and is used only as supporting evidence, never on its own.",
+    "The jaywalking man's true entry onto the road happened before the clip started; start is set to 0.0 as a clip boundary.",
+    "The stopped MPV was already stationary in frame 0; start is set to 0.0 as a clip boundary. Its stop duration is therefore at least 25.1 s, possibly much longer.",
+    "A dark MPV of the same model appears at approximately the same spot again at t~28.5. At 0.5 s sampling I could not determine whether this is the first vehicle returning or a similar second vehicle, so I did not label a second occurrence.",
+    "A man in a dark T-shirt stood almost motionless on the carriageway at source x~780, y~530-590 for at least 15 s (t=1-16), only about 0.3 m from the lower edge of the crossing. That is inside my measurement error, so I did not label it as jaywalking; if a stricter reading is wanted, it is a borderline second candidate in roughly t=0-16.",
+    "A man in a white shirt stands still on a pedestrian refuge island at source (615-660, 810-900) for t=226-242. I read this as waiting on the island, not an event.",
+    "The scene layout (which carriageway belongs to which approach, exact stop-line positions) is partly obscured by perspective; this is why the two medium/low confidence events are annotated by pixel position rather than by named approach."
+  ]
+}

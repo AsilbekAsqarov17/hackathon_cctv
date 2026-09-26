@@ -150,6 +150,60 @@ permissive licence, substituting an AGPL-free detector of the same interface
 (`src/perception/detector.py`) is a config change, not a code change. This is
 flagged rather than hidden and should be reviewed before publication.
 
+## Measured results, and what they mean
+
+Scored with the organizers' unmodified `evaluate.py` against our own labels
+(`data/annotations/my_labels.json`):
+
+```text
+format: 2 video(s), 87 event(s), 0 error(s) -> VALID
+Score A = 0.0000          MODEL SCORE = 0.0000
+accident 0/4   congestion 0/10   failure_to_yield 0/27
+jaywalking 0/6   near_miss 0/27   stopped_vehicle 0/13 (+1 FN)
+```
+
+**Part A scores zero, and the reason is not subtle: three independent reviews of
+the two sample clips, each using pixel-level checks, certified between them one
+event.** One clip is a clean negative — four repetitions of a single ordinary
+signal cycle. In the other, two reviewers verified a vehicle standing still for
+27 s and a third disputed only whether it was signal-driven, at 65 % confidence.
+So 87 predicted events against at most one real event means the false-positive
+rate is the whole problem, and it is unsolved.
+
+That is worth stating plainly rather than burying, because it also constrains
+what can honestly be claimed: with no accidents, near misses, wrong-way events
+or line crossings anywhere in the available footage, there is no evidence that
+those rules work at all. Their recall on the hidden set is unknown.
+
+**Part B was saturated and no longer is.** The risk curve used to sit at or
+above the alarm threshold on 99.6 % of frames, which makes a constant score and
+a real signal score identically — worth zero either way. Two faults caused it:
+risk features were emitted in pixels while the thresholds were written in
+metres (at ~55 px/m a 3 m/s gate was really 0.05 m/s), and time-to-collision was
+centre convergence rather than a collision prediction, so the minimum over
+twenty-odd road users was ~0.005 s on almost every frame. After the fix:
+
+| clip | frames at or above θ | alarms |
+|---|---|---|
+| C3897 0–30 s | 0.0 % | 0 |
+| C3897 100–115 s | 10.0 % | 1 short alarm |
+
+**A measurement that shaped the design:** over 300 sampled frames of ordinary
+traffic containing no accident, 8.9 % of all road-user pairs already predict
+contact within 0.5 s, because a car following a queue always extrapolates to
+contact. A constant-velocity TTC therefore cannot discriminate a crash from a
+queue on its own, and the scorer now gates on a signature — short predicted
+contact *and* genuine approach speed *and* a road user shedding speed.
+
+**The traffic-light reader is measured, not asserted.** `scripts/validate_signal_reader.py`
+checks it against hand-read phase windows: 89.5 % agreement on C3902 and 75.6 %
+on C3897, red recall 95 % and 100 %. Finding that it scored 7.7 % on one clip
+and 91.8 % on the other is what exposed an off-centre signal box — the same
+camera cannot have its signal in two places.
+
+Runtime on a CPU-only machine with no GPU: 442 s and 480 s for the two
+five-minute clips, against a 953 s budget each.
+
 ## Known limitations
 
 These are real and were measured, not guessed.

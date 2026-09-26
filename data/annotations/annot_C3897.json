@@ -2,53 +2,88 @@
   "video": "C3897_small.mp4",
   "duration": 317.82,
   "fps": 29.97,
-  "events": [
+  "events": [],
+  "signal_phases": [
     {
-      "label": "jaywalking",
+      "head": "centre",
+      "red_lamp_px": [1157, 371],
+      "red_windows": [[0.0, 20.1], [58.9, 94.8], [133.8, 169.8], [209.0, 245.5], [284.0, 317.8]],
+      "cycle_sec": 75.0,
+      "note": "Read at 4 Hz from crop x1150 y365 w14 h14 (the red lens of the vehicle head on the pole at ~(1140,400-560), the head that stands over the large westbound queue). Red onsets 58.86 / 133.83 / 209.04 / 284.02 -> cycle 74.97/75.21/74.98 s; red length 35.9-36.5 s. The first window is truncated by the start of the clip; back-extrapolating the 75 s cycle puts its onset at about -16.1 s. Amber/green lamps are too small and too dim at this resolution to segment numerically, so only the red is certified."
+    },
+    {
+      "head": "left_opposite",
+      "red_lamp_px": [269, 491],
+      "red_windows": [[0.0, 20.1], [52.8, 95.3], [127.8, 169.8], [203.0, 245.5], [277.9, 317.8]],
+      "cycle_sec": 75.0,
+      "note": "Read at 4 Hz from crop x262 y485 w14 h13. Same 75 s cycle as the centre head but the red starts about 6 s earlier and ends about 0.5 s later, so the two streams are NOT in identical phase even though they overlap for almost all of the red. The brightest samples (sat 13-15 vs 5-7) are here because this head is in sunlight. Back-extrapolated onset of the first window about -22.2 s."
+    }
+  ],
+  "notable_absence": [
+    "accident: no contact between any two road users, and no road user against a fixed object, anywhere in t=0..317.8. Read all seven 2 s contact sheets, then checked the whole frame at 0.25-1.0 s cadence around every place where the 2 s tiles looked odd (t=0-30, 24-28, 100-120, 143-164, 178-200, 203-212, 225-235, 244-252, 250-262, 284-318). As an independent check I ran a 0.5 s whole-frame motion-energy trace over the carriageway (y>=420): it is a clean, repeating signal-cycle waveform (peak 30.5 % of road pixels changing at t=111, trough 0.97 % at t=287.8) with no isolated burst-then-freeze signature, no vehicle left standing at an angle across a lane, and no crowd forming around a point in the road.",
+    "near_miss: none certifiable. Motion-dependent, so 2 s stills cannot fully exclude it, but the 0.5 s motion-energy curve has no isolated deceleration spike, and the only close encounters I found at 0.25-0.5 s cadence were ordinary following distance in slow traffic.",
+    "red_light: none, and I have positive evidence rather than just absence. I traced mean absolute frame difference in a band lying along the westbound stop line, full-res x300-1000 y450-520, at 4 Hz for the whole clip. That band is static (d_frame < 8) continuously through every red phase - 0.5-20.1, 59-95, 134-169, 206-245 and 283-305 s - and goes busy only on the greens. The only brief blips inside a red (7.24, 65.6, 69.8, 70.3, 70.8, 138.3, 143.4, 145.5, 305.0, 316.7 s) last 0.23 s each and are pedestrians walking on the crossing just beyond the line; I checked t=302.5-308 at 0.5 s and the queue is pixel-identical while only pedestrians move. I also confirmed the head I read governs this queue: the queue discharges within about 1 s of each green and is dead still through each red.",
+    "jaywalking: none found. I located the marked crossings - the large lower-left crossing running (60,700)->(850,1080), the central crossing running (150,600)->(1150,455), and the far-left crossing at the top of the frame - and then checked every pedestrian I could see at 0.5-1.0 s cadence against them. All of them were on a zebra, on a pavement, on a raised pink-paved island, on the kerbed corner between the two lower-left crossing bands, or at the kerbside bus stop. Specifically ruled out: a man in a white T-shirt and jeans who walks the lower-left crossing left-to-right at t=178-186 (feet on stripes at (255-480, 780-880)); a man in a white T-shirt and blue jeans who stands completely still on the crossing stripes at (580-620, 850-900) from at least t=74 to t=84 (12 s+ at 2 s cadence, pixel-identical); a man in a white T-shirt with a shoulder bag at (700-770, 790-900) at t=225-234, who is on the paved corner between the crossing and the pink island, not in a lane; the crowd of 8-12 people on the pavement at the bus stop at t=165-176; the man in a navy T-shirt who walks down the bus-stop pavement at t=165-168; and the group of three at (380-480, 770-900) at t=308-317, who are standing on the crossing stripes.",
+    "stopped_vehicle: none reported, but this is the class I am least sure about - see rejected_candidates. Three different vehicles sit motionless for 25-36 s in the middle of the junction and all three release on the green, which is the signature of a signal queue and is explicitly excluded by the class definition.",
+    "congestion: none reported. Traffic is heavy on several greens - most at t=28-40, t=100-120 and t=250-265, when the carriageway carries 4-6 lanes of cars, minibuses and buses end to end - but the 0.5 s motion-energy trace shows every standstill period in the clip coincides with a red phase, i.e. it is the ordinary signal queue, and the buses that look stationary in 2 s tiles are creeping (see caveats).",
+    "road_obstacle: none. I searched for compact regions that change almost never while the carriageway around them changes constantly (per-pixel change fraction at 1 Hz, downscaled 4x, dilated and connected). Every low-change blob came back as frame-edge road furniture, the park/sky above y=380, the signal poles, or the junction box containing the three stopped vehicles. No isolated small static object anywhere on the carriageway.",
+    "fire_smoke: none. No smoke or flame in any frame, including the full-frame views at t=15, 160, 230 and 300 and the whole-clip motion trace (fire would produce a large slow-changing blob high in the frame).",
+    "wrong_way: none. Every vehicle I could follow, including a teal scooter with a rider in a dark top that crosses the junction between t=254 and t=258 and a motorcycle with a magenta-jacketed rider between t=193 and t=194.5, travels with its own stream.",
+    "failure_to_yield: not reported. The vehicles here almost entirely go straight, and turning manoeuvres at this camera angle and resolution are not resolvable to the frame. I could not find a single instance of a vehicle turning across a crossing with a pedestrian on it. The one suspicious case is in rejected_candidates.",
+    "illegal_u_turn: none. No vehicle made a U-turn anywhere in the clip.",
+    "illegal_turn, solid_line_crossing: not certifiable. Lane markings on the exit carriageway are worn to the point of being invisible (I contrast-enhanced x900-1750 y560-1000 at t=230 and found bare asphalt, cracks and no lane lines at all), and a turn out of the wrong lane cannot be demonstrated without them. I am not willing to label these on the basis of a heading angle alone.",
+    "stop_line: not reported. The one clearly painted stop line in the covered area is the one the westbound queue obeys, and the queue never overshoots it by more than a car's nose. The three vehicles discussed in rejected_candidates stop 200-400 px PAST that line, and I could not find a painted line in front of them, so I cannot certify a stop_line event either; and they have already entered the junction, which the class definition excludes."
+  ],
+  "rejected_candidates": [
+    {
+      "label": "stopped_vehicle",
       "start": 0.0,
-      "end": 8.4,
-      "confidence": "high",
-      "observed_at": 2.0,
-      "note": "Man in a dark maroon T-shirt and white shoes walks briskly down-left across the wide carriageway on bare asphalt, consistently 0.5-1.5 m below/south of the adjacent marked yellow/white zebra crossing and past the pedestrian refuge island carrying the blue keep-right arrow sign - while other pedestrians are using that same crossing. He reaches the pink triangular traffic island kerb at ~7.0 s and steps up onto it by ~8.4 s. Start is CLIPPED by the clip boundary: he is already on the road outside the crossing in frame 0 (verified at 0.25 s steps on a 1:1 crop, source x 1150-1500 / y 450-660, where his feet track ~25 px to ~55 px below the lower edge of the stripe band)."
+      "end": 27.2,
+      "why_rejected": "MOST LIKELY TO BE WORTH A HUMAN OVERRIDE, and the only candidate I would argue about. A black Kia-Carnival-type MPV, plate 01 A 555 KA, stands at full-res (1140-1420, 655-855) - alone in a marked traffic lane of the exit carriageway, nose pointing down-right, headlights on, nothing ahead of it, nothing behind it in that lane, no bus stop, no queue, and the road ahead is clear for 200+ px. It is pixel-identical from t=0.00 (so its stop is left-censored by the clip) through t=27.19 and first displaced at t=27.43, i.e. >= 27.2 s, verified at 0.25 s cadence over crop x1100 y670 w300 h220 and again over x1080 y650 w340 h240. It therefore passes the 'stationary on the carriageway >= 10 s, not in a queue, not at the bus stop' test on the face of it. I did NOT label it because the stop is almost certainly signal-driven: (a) it sits in the same lane, ~200 px further on, than a dark grey Nissan Qashqai (plate 10 D 498 BB) which I template-tracked as pixel-identical at (900-1200, 620-800) from t=210.2 to t=246.25 - that car stopped 1.2 s after the centre head turned red at t=209.0 and moved ~1.75 s after the green at t=245.5, which is an exact signal lock and is what tells us where this junction's stop line is; (b) an opposing-direction white Kia Bongo/Hyundai H-1 minivan stands at (960-1190, 670-880) from t=145.65 to t=170.67, i.e. releasing 0.87 s after the green at t=169.8; (c) this MPV moved at t=27.2, 7.1 s after the green at t=20.09, which is a long but not impossible queue-discharge delay. Against that: I could not find a painted stop line anywhere in front of it, it is alone in its lane, and 7 s of green with a clear road in front is long. My confidence that this is a signal-queue stop is only about 65 %, which is below the bar for a ground-truth label, so I am flagging it rather than asserting it. If a human agrees it is a genuinely abandoned vehicle, the segment is start 0.0 (censored; the true stop is before the clip), end 27.2, confidence high.",
+      "worth_a_human_override": true
+    },
+    {
+      "label": "stopped_vehicle",
+      "start": 210.2,
+      "end": 247.5,
+      "why_rejected": "Dark grey Nissan Qashqai, plate 10 D 498 BB, at (900-1200, 620-800), alone in the exit lane with clear road ahead. Measured by normalised cross-correlation of a 140x110 template taken at t=240: score 0.986-0.995 and location fixed at (800,660) from t=210.21 to t=246.25, then displaced, then gone by t=252. It stopped 1.2 s after the centre head's red onset at t=209.0 and released 1.75-2 s after the green at t=245.5, which is an unambiguous signal lock, so it falls under the class's 'not in a queue at a signal' exclusion. It is listed because the exclusion is being read off timing plus the presence of other cars stopping in the same place, not from a visible stop line - I contrast-enhanced x900-1750 y560-1000 at t=230 and the carriageway in front of it is bare, unmarked asphalt with no stop line at all.",
+      "worth_a_human_override": true
+    },
+    {
+      "label": "stopped_vehicle",
+      "start": 145.7,
+      "end": 170.7,
+      "why_rejected": "White Kia Bongo / Hyundai H-1 minivan in the OPPOSING-direction lane at (960-1190, 670-880) - its nose points down-left, unlike the two above, so it is a different stream's stop line. Box trace at 2 Hz over x950 y670 w240 h170 is static from t=145.65 to t=170.67 and released 0.87 s after the green at t=169.8. Clear signal stop; excluded with more confidence than the two above.",
+      "worth_a_human_override": false
+    },
+    {
+      "label": "failure_to_yield",
+      "start": 193.0,
+      "end": 194.5,
+      "why_rejected": "A motorcycle with a rider in a magenta/pink jacket and a green helmet traverses the marked lower-left crossing from roughly (680, 900) to (730, 1010) between t=193.0 and t=194.5 while two pedestrians in white shirts are on the same crossing at (330-390, 880-960) and (400-450, 960-1030). Verified at 0.5 s cadence over x250 y780 w480 h320 and x600 y700 w600 h400. I did not label it because (a) the stream has GREEN throughout (169.8-209.0), so in a signalised junction the pedestrians are the ones outside the signal, and this is not a vehicle failing to yield to a vehicle with right of way; (b) the motorcycle is travelling along the carriageway over the stripes, not turning across them, so it is not 'driving through a crossing' in the sense the class implies; and (c) I could not show that its path came within a small distance of any pedestrian - at t=193.0 they are roughly side by side with about 50 px of separation, and the rider passes without any visible evasive action. A human who reads a motorcycle traversing an occupied zebra as failure_to_yield, or reads the same moment as a near_miss, would be disagreeing with me on a judgement call rather than on a fact.",
+      "worth_a_human_override": true
+    },
+    {
+      "label": "congestion",
+      "start": 28.0,
+      "end": 265.0,
+      "why_rejected": "Placeholder for the three heavy-traffic stretches (t~28-40, t~100-120, t~250-265) where the carriageway is full end to end with cars, minibuses and buses. Rejected because at 0.5 s cadence the vehicles keep moving and every genuine standstill in those stretches coincides with a red phase. Note the ranges here are deliberately loose - this is one rejected candidate covering three separate stretches, not a single segment.",
+      "worth_a_human_override": false
     },
     {
       "label": "stopped_vehicle",
       "start": 0.0,
-      "end": 25.1,
-      "confidence": "medium",
-      "observed_at": 13.01,
-      "note": "Dark grey Kia Carens MPV with headlights on and a driver visible in the front seat, stationary at approx source (1150-1410, 660-870) in the open paved junction area, from before t=0 until it pulls away at t=25.0-25.2. Objectively verified with a frame-difference probe on that box: mean abs diff <1.0 for every sample from t=0 to t=24.8, then 16.7 at t=25.2. Not at a kerb (no kerb or bay marking adjacent), nothing queued behind it, and the lane above it kept flowing. Start is CLIPPED by the clip boundary. Medium rather than high because the junction area is wide and unmarked, so 'on the carriageway' vs 'informal parking spot' is a judgement call."
-    },
-    {
-      "label": "congestion",
-      "start": 0.0,
-      "end": 21.0,
-      "confidence": "low",
-      "observed_at": 9.01,
-      "note": "LOW CONFIDENCE - THIS EVENT MAY BE REJECTABLE. A multi-lane standstill queue of 10+ vehicles (cars, minivans, taxis) fills the full width of the near-side carriageway at source x 250-900+ / y 280-480, stationary from t=0 to ~t=21 and starting to move at t=21-23. Frame-difference probe on the queue box: baseline ~3.0 from t=2 to t=20, rising from t=20.5, above 50 by t=24.5. The signal head facing this movement at source (250-290, 560-605) shows RED from t=0 to ~t=15 (pixel-sampled), so this is a RED-LIGHT QUEUE, not a spontaneous jam. The stated definition ('trail at a standstill across all lanes of one direction') is met literally, but any convention that excludes signal queues - as the spec does explicitly for stopped_vehicle - would drop this event."
+      "end": 317.8,
+      "why_rejected": "Placeholder covering the green/white buses that look stationary in 2 s contact-sheet tiles (most obviously a rank of them under the shelter at the top of the frame, and long articulated buses filling the carriageway at t~50-60, t~100-115 and t~170-180). All are either at the kerbside bus stop or creeping; the class definition excludes the bus stop explicitly and the creep is measurable at 1.5 s cadence.",
+      "worth_a_human_override": false
     }
   ],
-  "notable_absence": [
-    "No accident / contact between road users anywhere in the clip. Reviewed every tile of all seven 2 s contact sheets, a full 1 fps pass over all 318 s, and dense zoom passes at t=0-10, 93-97, 182-200 and 284-317. No vehicle showed an abrupt in-lane stop, no debris, and no crowd gathered around a vehicle.",
-    "No road_obstacle: no debris, animal or dropped object was visible on any carriageway at any point in the clip.",
-    "No fire_smoke: no smoke, steam or flame was visible in any frame.",
-    "No wrong_way: all vehicles travelled in the direction of their lane; oncoming traffic stayed on its own side of the median throughout.",
-    "No illegal_u_turn observed - no vehicle made a U-turn at any point.",
-    "No confirmed red_light. I was able to build a coarse red/off timeline for two signal heads by pixel-sampling the lit lens, but neither head could be tied to a specific stop line at this camera angle, and I never saw a vehicle enter the junction against a red. Every signal-controlled queue I saw was stationary behind its stop line.",
-    "No near_miss. No sharp braking or swerving was visible in the sampled frames - but 0.25-0.5 s sampling genuinely cannot rule out brief evasive manoeuvres, so this is weak evidence of absence.",
-    "No failure_to_yield. Every pedestrian who entered the carriageway did so on a marked crossing except the one confirmed jaywalker, who crossed an empty stretch with no vehicle approaching.",
-    "No solid_line_crossing or illegal_turn that I could judge. Lane markings in the wide junction area are too worn and faint at 1920x1080 seen from this height to determine a lane change against a solid line.",
-    "The dense row of cars that sits at the top-left (source ~0-1050, y 255-495) throughout t=0-18 is a mix of parking and a signal queue, so I did not label any part of it as stopped_vehicle or congestion."
-  ],
   "caveats": [
-    "All boundaries are accurate to about +/-1 s: the provided sheets are 2 s apart and my zoom sheets were 0.2-0.5 s apart.",
-    "Motion-dependent classes (accident, near_miss, illegal_turn, solid_line_crossing, wrong_way) are not decidable from 2 s stills at this camera height. I deliberately did not report them rather than invent precision.",
-    "The two signal heads I could sample are each a matrix of several aspects viewed at an oblique angle. I could separate 'red' from 'not red' but could not reliably separate red from amber, so my signal timeline is coarse and is used only as supporting evidence, never on its own.",
-    "The jaywalking man's true entry onto the road happened before the clip started; start is set to 0.0 as a clip boundary.",
-    "The stopped MPV was already stationary in frame 0; start is set to 0.0 as a clip boundary. Its stop duration is therefore at least 25.1 s, possibly much longer.",
-    "A dark MPV of the same model appears at approximately the same spot again at t~28.5. At 0.5 s sampling I could not determine whether this is the first vehicle returning or a similar second vehicle, so I did not label a second occurrence.",
-    "A man in a dark T-shirt stood almost motionless on the carriageway at source x~780, y~530-590 for at least 15 s (t=1-16), only about 0.3 m from the lower edge of the crossing. That is inside my measurement error, so I did not label it as jaywalking; if a stricter reading is wanted, it is a borderline second candidate in roughly t=0-16.",
-    "A man in a white shirt stands still on a pedestrian refuge island at source (615-660, 810-900) for t=226-242. I read this as waiting on the island, not an event.",
-    "The scene layout (which carriageway belongs to which approach, exact stop-line positions) is partly obscured by perspective; this is why the two medium/low confidence events are annotated by pixel position rather than by named approach."
+    "Signal-phase reference (this is the most reliable measurement in the file). Centre head at ~(1140,400-560) pole, red lens at (1157,371): RED approx [0,20.1] [58.9,94.8] [133.8,169.8] [209.0,245.5] [284.0,317.8], red onsets 58.86/133.83/209.04/284.02, i.e. a 75.0 s cycle with about 36 s of red. Opposite head at ~(250,530-660) pole, red lens at (269,491): RED approx [0,20.1] [52.8,95.3] [127.8,169.8] [203.0,245.5] [277.9,317.8], same 75 s cycle but starting about 6 s earlier. The amber and green lenses are only a few pixels across and sit in the head's own shadow, so I certify only the red; a reader should not assume a specific amber duration from this file. Both first windows are truncated by the start of the clip.",
+    "The junction's stop line for the westbound stream is NOT painted where the queue actually stops. The queue obeys a clearly painted line at about (170,545)->(1150,455) with its noses about 150 px short of the central crossing at (150,600)->(1150,455), but the three vehicles described in rejected_candidates all come to rest 200-400 px PAST that crossing, on bare unmarked asphalt. That is why I could not classify those three stops as stop_line either, and it is the single biggest open question in this annotation.",
+    "This clip is, like its sibling, essentially one ordinary signal cycle repeated four and a bit times, with heavy bus traffic layered on top. Almost everything that looks anomalous in a 2 s tile resolves into the red-light queue, the kerbside bus stop, a bus convoy creeping, or a pedestrian shadow sliding across the pavement - that last one is the main false-positive generator in the automated 'slow small object' search I ran, and it produced 20-30 apparent 10 s tracks of 1000-5000 px on the pavement around t=146-162 and t=216-226 that are all just shadows of people walking.",
+    "All timings in this file are +/- about 1 s. Motion-dependent boundaries were refined at 0.25 s cadence (t=26.4-28.5 and t=205.5-211.5); everything else was read at 0.5-2.0 s. The signal windows were sampled at 4 Hz and the transitions are clean (saturation jumps from under 3 to over 5 within one 0.23 s sample), so they are good to about +/- 0.25 s, not +/- 1 s.",
+    "Caveat on my own method: the automated stopped-object search (per-pixel change fraction, 1 Hz) is only good negative evidence for a large isolated static object on the carriageway. It has a 1600 px area floor at 4x downscale, so it cannot find a pedestrian-sized object standing in the road, and it produced nothing usable at all for jaywalking - I had to rely on my own frame-by-frame reading of the crossings for that. The slow-small-object tracker needed hand-tuned thresholds and, once I fixed a linking bug in it, still produced mostly shadows and vehicle edges; I do not claim it as strong evidence either way.",
+    "Residual risk I could not close: a short event (under about 2 s) somewhere in the clip would be invisible to a 2 s contact sheet, and I did not have budget to sweep all 318 s at sub-second cadence. I mitigated this with a 0.5 s whole-frame motion-energy trace, which would have shown a collision or a hard brake as a spike, and by zooming every region that looked odd at 0.25-1.0 s, but the mitigation is statistical, not exhaustive."
   ]
 }

@@ -1,2 +1,10 @@
 /home/axumfa/H/hackathon_cctv/src/perception/tracker.py:286: UserWarning: official ByteTrack unavailable (official ByteTrack source is not importable); using fallback
   warnings.warn(f"official ByteTrack unavailable ({exc}); using fallback")
+[C3897_small.mp4] 317.8s @ 29.97 fps, budget 953s
+[Part A] C3897_small.mp4: 3175 sampled frames, 42 events, 376.7s
+[C3897_small.mp4] 42 events, 9525 risk samples, 697.5s — OK
+[C3902_small.mp4] 317.8s @ 29.97 fps, budget 953s
+[Part A] C3902_small.mp4: 3175 sampled frames, 38 events, 617.2s
+[C3902_small.mp4] 0 events, 0 risk samples, 953.9s — 1 problem(s)
+   ! over time budget (953.9s > 953s): scored as empty
+wrote data/inspection/predictions_samples.json
