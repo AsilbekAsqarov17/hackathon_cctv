@@ -2,26 +2,62 @@
   "video": "C3902_small.mp4",
   "duration": 317.82,
   "fps": 29.97,
-  "events": [],
+  "events": [
+    {
+      "label": "stopped_vehicle",
+      "start": 66.5,
+      "end": 80.0,
+      "confidence": "high",
+      "observed_at": 70.0,
+      "note": "Lime-green articulated bus (route 99) stopped diagonally across the middle of the intersection, rear section at frame x1200-1800 y700-1000. Verified by 0.5 s zoom sheets: the bus is pixel-identical at t=70,72,74,76,78 while cars, vans and a box truck flow past on its left. The signal governing this direction is GREEN from t=40 to ~t=76, so this is NOT a red-light queue and nothing is stopped behind it in that lane. Bus starts creeping again at ~t=80 and leaves the frame at ~t=86. Boundary uncertainty about +/-1 s."
+    },
+    {
+      "label": "jaywalking",
+      "start": 82.3,
+      "end": 95.0,
+      "confidence": "high",
+      "observed_at": 90.0,
+      "note": "Three young men (one in a white T-shirt, two in black) walk diagonally NE across the wide open intersection carriageway from the lower-left crossing towards the far kerb island at x1140-1290 y550-600. Confirmed on unmarked dark asphalt at frame (790-830,640-720), (1010-1060,650-740), (1120-1170,660-760) at t=90, and on plain asphalt at (600-650,750-840),(780-820,760-850),(960-1010,750-850) at t=86. Template-tracked trajectories: they appear to leave the marked zebra at ~t=82.3 (front man) and reach the far kerb/island at ~t=95. Cars and a bus pass within a few metres of them. Boundaries +/-1.5 s."
+    },
+    {
+      "label": "congestion",
+      "start": 214.0,
+      "end": 243.0,
+      "confidence": "medium",
+      "observed_at": 220.0,
+      "note": "Intersection box and the approach lanes are packed nose-to-tail with buses, minibuses, vans and cars in every lane of the direction travelling right; the queue spans the full carriageway width from x=0 to x=1200, y=150-620. 1 s-step crops at t=216-220 show the signal is GREEN and the queue is CRAWLING, not stopped (a bus advances ~50 px/s, roughly 1 m/s), which distinguishes this from a plain red-light queue. Traffic starts packing at ~t=213 and the box is essentially clear again by ~t=243 (a red bus queue remains in the far carriageway at t=245-249). Boundaries +/-3 s; I could not verify the signal state continuously across the whole 30 s."
+    },
+    {
+      "label": "jaywalking",
+      "start": 179.0,
+      "end": 194.0,
+      "confidence": "medium",
+      "observed_at": 186.0,
+      "note": "One to three pedestrians on the dark unmarked carriageway between the middle zebra crossing (stripes end at y~600) and the pink triangular island (kerb at y~780), in the band x600-1100, y620-950. A man in a white T-shirt with a red shoulder bag stands at (620-780, 620-740) for roughly 10 s; a man in a black T-shirt and beige trousers walks across (700,670) at t=185 to (1010,700) at t=188. WEAKER LABEL than the first one: some of these people appear to be loitering/standing rather than crossing, and I cannot prove they stepped off the kerb rather than the island. Boundaries +/-2 s."
+    }
+  ],
   "notable_absence": [
-    "accident: no contact between any two road users, and no road user against a fixed object, anywhere in t=0..317.8. Checked all 7 contact sheets plus a whole-frame motion/change analysis at 1 Hz; there is no 'sudden burst of motion then long freeze' signature anywhere that would indicate a collision, no vehicle stopped at an angle across a lane, and no crowd gathering around a point in the road.",
-    "near_miss: no sharp braking or swerving to avoid contact was identifiable. Motion-dependent, so 2 s stills cannot fully exclude it, but the 1 Hz change analysis shows no isolated deceleration signature, and no two road users came together and separated sharply at any point.",
-    "fire_smoke: none. No smoke or flame visible in any frame of the clip.",
-    "road_obstacle: none. No debris, animal or fallen object on the carriageway at any time.",
-    "jaywalking: none found. I located three marked crossings (mid crossing ~ (250,640)->(1150,490); east crossing ~ (1170,455)->(1500,420); large lower-left crossing ~ (150,780)->(800,1080)) and checked every pedestrian seen in the clip at 1.5 s cadence against them. All pedestrians were either on a zebra, on a pavement/median, on the raised black-and-white pedestrian island, at the bus stop, on the park footpath, or standing in a traffic lane that turned out to be the approach to a crossing (e.g. the man in a white T-shirt who stood at ~(275,630) for 16 s at t=146..162 is at the kerb at the head of the lower-left crossing).",
-    "red_light: none reported. I could read the signal head at ~(1085-1130,375-430) reliably at 1 Hz (RED ~[0,36] [80,114] [158,194] [238,274], ~80 s cycle) and confirmed the main-carriageway queue stands still through every red and discharges on every green. However the carriageway is bidirectional at this angle and the westbound and eastbound streams clearly run on different phases, so I could not tie a specific stop line to a specific signal head with the confidence a red_light label needs. Not reported rather than guessed.",
-    "stopped_vehicle: none. The only vehicles stationary >=10 s are (a) the westbound signal queue and (b) green buses standing at the kerbside bus stop under the 'OO' shelter at ~(855-960,145-180) with 10-12 passengers waiting behind it. Both are explicitly excluded by the class definition.",
-    "congestion: none reported. The carriageway is fully occupied for long stretches (most dramatically t~205-235 and t~278-302, when 5-6 articulated buses plus cars fill it end to end) but at 1-1.5 s cadence the vehicles keep creeping; I could never establish a standstill or a crawl outside the ordinary signal queue, and I could not separate the bus-stop queueing from genuine congestion.",
-    "wrong_way, illegal_u_turn, illegal_turn, solid_line_crossing, failure_to_yield, stop_line: nothing I could certify. No vehicle was seen against the flow, none made a U-turn, and no turn or lane change across a marking was resolvable at this camera angle and resolution."
+    "accident: no contact between any road users and no vehicle against a fixed object anywhere in the 317 s. I looked for a stationary car in the middle of a lane, a cluster of vehicles at an angle, debris on the asphalt and a gathering crowd at all 7 overview sheets; the only crowd of pedestrians (t=128-145) is a normal group using the marked zebra crossing.",
+    "near_miss: no visible instance of sharp braking or swerving to avoid a conflict. Cannot be excluded - 2 s stills cannot resolve deceleration - but nothing in the stills suggests one.",
+    "road_obstacle: no debris, animal or fallen object on the carriageway at any time.",
+    "fire_smoke: no smoke or flame visible anywhere in the clip.",
+    "red_light: no vehicle crossed a stop line against a red. Every time I could read a signal (t=30, 82.5, 84.5, 86, 90, 94.5, 216-220, 245) the signal state was consistent with the traffic that was moving; the eastbound and westbound heads were red at t=30-35, 76-92, 245-249 and green at t=40-76 and t=216-220.",
+    "wrong_way: no vehicle travelled against its lane direction. All turning traffic used the same turning area in a consistent direction.",
+    "illegal_u_turn and illegal_turn: no U-turns and no turn from a clearly wrong lane observed in the clip.",
+    "solid_line_crossing and stop_line: no clearly observable solid-line crossing and no vehicle stopped past a stop line on red. Both need a resolution and viewing angle this camera does not give.",
+    "failure_to_yield: the two marked crossings were very heavily used (a group of ~15 people on the zebra at t=128-145, more groups at t=176-190) but in every case the turning traffic was stopped or slow before the crossing, so I saw no vehicle drive through a crossing occupied by a pedestrian.",
+    "The long stationary queue in the upper-left carriageway (frame x0-800, y240-520), present almost continuously from t=0 to t=317, is a RED-LIGHT queue, not congestion or stopped_vehicle: the signal for that direction is red whenever I checked (t=30, 82.5, 84.5, 86, 90, 94.5).",
+    "An orange food-delivery scooter with a red box stopped on the lower-left zebra crossing at t=30-41. Template tracking gives a genuinely stationary period of only about 6.0 s (x=604 at t=30.0 -> x=602 at t=35.5, then a slow creep away from t=36), which is under the 10 s rule, so it is NOT labelled stopped_vehicle.",
+    "The dense traffic at t=290-315 is NOT labelled congestion: 1 s-step crops at t=300-304 show vehicles moving at roughly 100 px/s (about 2.5 m/s), i.e. flowing rather than crawling.",
+    "The intersection bus jam at t=214-243 is not a bus-stop queue in my view (green signal, all lanes crawling), but I could not read the signal continuously, so a red-light explanation cannot be fully excluded."
   ],
   "caveats": [
-    "REJECTED CANDIDATE, most likely to be worth a human override - stopped_vehicle: an orange delivery scooter with a rider (white shirt, red helmet, black cargo box) stood completely stationary in a marked traffic lane at full-res ~(400-535, 505-590) from t~96.0 to t~118.5, i.e. ~22.5 s, which is more than double the 10 s threshold. Verified at 1.5 s cadence over crop x330 y400 w330 h240 and again over crop x250 y400 w520 h260: its position did not change by more than a few pixels from t=96 to t=117.5, then it moved off to the right and was gone by t=122. I did NOT label it, because it departed within about a second of the adjacent westbound queue discharging (queue starts moving at t~118, matching the signal's green at t~117), which means it was waiting at a signal stop line. It was, however, entirely alone in its lane with no vehicle ahead of it, so if the reviewer's definition of 'in a queue at a signal' excludes only multi-vehicle queues, this is a valid stopped_vehicle at start 96.0, end 118.5, confidence medium.",
-    "REJECTED CANDIDATE - failure_to_yield, most suspicious unresolved item: a white car moves rightward across the marked east crossing at full-res ~(1250-1550, 420-580) between t~173.5 and t~186 while a crowd of 15-20 pedestrians is in the same part of the frame. Verified at 1.5 s cadence over crop x1050 y400 w500 h380. I could not establish that any pedestrian was actually standing on the carriageway portion of the crossing at the instant the car entered it: the crowd's feet appear to be on the pavement/median side of the crossing's far edge, and the black-and-white kerbed island with the blue 'keep right' sign at ~(1225-1290,550-600) sits between them. Needs a frame-accurate look at t=175..180 before it can be called.",
-    "REJECTED CANDIDATE - stopped_vehicle: a man with a yellow/green e-scooter stood still at ~(1100-1150,450-500) from t=190 to t=203 (13 s), then bent over the scooter and left. Verified at 1 Hz over crop x1080 y430 w230 h180. Excluded because he is standing on the raised black-and-white kerbed pedestrian island beside the 'keep right' sign, not on the carriageway.",
-    "REJECTED CANDIDATES - green buses that look stationary in 2 s contact-sheet tiles but are not: (a) a long articulated green bus occupying ~(1140-1920,570-1080) between t~58 and t~88; at 2.6 s cadence its near edge advances ~500 px over that period, so it is creeping, not stopped; (b) a green bus at ~(670-1120,310-500) during t~282-298, which at 1.5 s cadence is simply passing through between t~284 and t~291.",
-    "Signal phase reference (read at 1 Hz from crop x1070 y360 w80 h90, very legible) for the centre head at ~(1110,395): RED approx [0,36] [80,114] [158,194] [238,274]; AMBER approx 3 s at the end of each red; GREEN for the remainder, giving an ~80 s cycle. This is the signal that governs the large westbound queue. A second head at ~(215,525) governs the opposite stream and runs a different phase, which is why eastbound traffic is flowing during the westbound red phases.",
-    "The whole clip is essentially one ordinary signal cycle repeated four times, with heavy bus traffic layered on top in t~205-235 and t~278-302. Most of what looks like an anomaly in a 2 s tile resolves into the red-light queue, the kerbside bus stop, or a bus convoy once viewed at 1-1.5 s.",
-    "All timings in this file are +/- ~1 s. Boundary refinement used 1-1.5 s contact sheets over small crops; 0.25 s refinement was not needed because no event was certified.",
-    "Caveat on my own method: the automated stopped-object search I ran (per-pixel longest static run, restricted to pixels that move substantially at some point) only ever returned the signal queue itself, the bus stop, and frame-edge road furniture. That is good negative evidence for an isolated stopped object or debris, but it would not reliably find a pedestrian-sized object standing in the road, so the jaywalking negative rests on my own frame-by-frame reading of the sheets and zooms rather than on the automated check."
+    "All boundaries come from 2 s contact-sheet tiles refined with 0.25-1.0 s zoom sheets, so short events are good to about +/-1 s and the congestion start/end to about +/-3 s.",
+    "The clip is a fixed elevated wide shot; pedestrians are 40-70 px tall and the signal heads are only about 10 px across. I could separate red from green but never amber, and I could not see signal phase for a direction unless the head faced the camera.",
+    "Motion-dependent classes (near_miss, braking, illegal_turn, solid_line_crossing, stop_line, wrong_way) are close to unresolvable from stills at this scale. I treated all of them as 'not observed' rather than 'absent'.",
+    "The stopped bus may not be strictly zero-speed: its rear edge moved about 200 px between t=58 and t=67 (roughly 0.5 m/s, a crawl) before becoming pixel-identical at t=70-78. I set start=66.5 as the point where it becomes stationary, but a labeller using a looser speed threshold might start the segment anywhere in 56-67 s.",
+    "For the two jaywalking segments I inferred the entry/exit from where the pedestrians' feet are relative to the crossing stripes; foot position is only good to about +/-10 px (roughly +/-0.3 m) at this distance, which matters for the first step onto the road.",
+    "The second jaywalking segment (t=179-194) is the weakest label: the pedestrians there walk slowly or stand still, and I cannot rule out that some were on an unpaved shoulder rather than the carriageway. Drop it if a false positive is worse than a miss.",
+    "I did not systematically sweep the far carriageway (y<240) or the far right pavement (x>1500, y>450) at sub-second resolution; both are at the frame edge where resolution is worst."
   ]
 }

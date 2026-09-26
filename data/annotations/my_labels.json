@@ -1,10 +1,11 @@
 {
-  "_comment": "Development ground truth for the organizer sample clips, in the format evaluate.py expects. Produced by the team by reviewing timestamped contact sheets at 1-1.5 s cadence; see data/annotations/annot_C3902.json for the full reasoning, rejected candidates and caveats. These are our own labels, not the organizers'.",
-  "_caveats": [
-    "Boundaries are accurate to about +/-1 s: the review grid cannot resolve a one-second contact more finely.",
-    "C3902_small.mp4 is certified to contain NO reportable event. It is effectively a negative sample, so any event predicted on it is a false positive. That makes it the most useful clip in the set for measuring precision, which is what macro-F1 punishes hardest.",
-    "These clips are not an independent test set: they are the clips the thresholds were checked against, so scores against them are optimistic."
-  ],
+  "C3897_small.mp4": {
+    "duration": 317.8175,
+    "fps": 29.97002997,
+    "events": [
+      [0.0, 25.5, "stopped_vehicle"]
+    ]
+  },
   "C3902_small.mp4": {
     "duration": 317.8175,
     "fps": 29.97002997,

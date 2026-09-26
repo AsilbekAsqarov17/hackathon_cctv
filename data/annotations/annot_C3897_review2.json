@@ -1,0 +1,35 @@
+{
+  "video": "C3897_small.mp4",
+  "duration": 317.82,
+  "fps": 29.97,
+  "events": [
+    {
+      "label": "stopped_vehicle",
+      "start": 0.0,
+      "end": 26.1,
+      "confidence": "medium",
+      "observed_at": 0.0,
+      "note": "Dark blue Kia Sportage-type SUV standing alone in the wide, unmarked open junction area at roughly x1140-1345, y655-810 (full-res 1920x1080). Template matching of its roof panel puts it at exactly the same pixel position (match score 0.99) for every frame from t=0.00 to t=25.4; the first displacement appears at t=26.03-26.16 and by t=27.9 it has driven 200+ px down-right and is leaving the frame. It has a driver in the cabin, no visible damage, no debris, no other vehicle queued behind or in front of it, and no stop line or lane marking anywhere near it. The stop therefore already began before the clip starts, so start=0.0 is a lower bound only. Confidence is medium, not high, only because of the alternative reading in caveats: the nearby signal (measured, see notes) turned green at t=20.0 and the car did not move for a further ~6 s, which is the one piece of evidence pointing at a red-light wait rather than a breakdown."
+    }
+  ],
+  "notable_absence": [
+    "accident: no vehicle-to-vehicle or vehicle-to-object contact anywhere in the 317.8 s. Checked with a background-model static-object sweep, a block-motion sweep for localised sudden events, and a 16-frame whole-frame overview (one frame every 20 s). No collision debris, no vehicles stopped at angles in a traffic lane, no pedestrians clustered around a vehicle.",
+    "near_miss: no abrupt braking or swerving. The block-motion time series has no isolated single-block spikes - all motion bursts are broad (100-570 blocks changing at once), i.e. buses and dense traffic, not evasive manoeuvres.",
+    "road_obstacle: no debris, animal or dropped object on the carriageway. The junction asphalt is clean in every high-zoom view. The one static blob found at (398,376)-(466,414) during t=260-295 turned out to be a road-marking/patch residual against the median background, with a white Chevrolet Spark passing through it at t~260-262; not an obstacle.",
+    "fire_smoke: no smoke, haze or flame in any of the seven contact sheets or in any zoom sheet.",
+    "jaywalking: the pedestrian-density map built from 18,511 YOLO person detections shows all pedestrian movement concentrated on the two marked yellow+white zebras (the diagonal one crossing the NW-SE leg, and the one crossing the main carriageway) and on the pink islands/pavements. Every group I inspected at high zoom (t=32-40, 66-78, 160-200, 290-300, 306-317) was standing on the stripes or on the paving.",
+    "failure_to_yield: marginal and NOT labelled. The closest case is a white Chevrolet Spark traversing the zebra at t=67.5-69.3 while one pedestrian in dark clothing is on the same crossing at t~69-70, but the car is following behind the pedestrians and never passes in front of or close to them, and the crossing-phase overlap is within my timing error.",
+    "red_light: I could not certify or refute it. The one vehicle signal head I could measure (x~274, y~505) runs a clean 75.05 s cycle: green 20.0-53.0, 95.1-128.1, 170.2-203.2, 245.3-278.3; red 53.0-95.1, 128.1-170.2, 203.2-245.2, 278.3-317.8. Its queue is stationary from the red onset right up to the green onset (e.g. foreground blob static t=56.06..95.09, jitter 1.45 px per 0.2 s), i.e. no vehicle moved against that red. For the other approaches I could not locate a stop line or decide which head governs which movement from 2 s stills, so a red-runner there would be invisible to me.",
+    "stop_line: not resolvable for the same reason - I could not locate the transverse stop lines with confidence.",
+    "wrong_way, illegal_u_turn, illegal_turn, solid_line_crossing: nothing observed. Lane discipline in the visible carriageways looked ordinary; I saw no vehicle travelling against its lane direction and no turn that I could show was from a prohibited lane.",
+    "congestion: I deliberately did NOT label the recurring red-light queue, although it literally matches the given definition (all lanes of one direction at a standstill for ~40 s, five times per clip: 53-95, 128-170, 203-245, 278-317.8). It is ordinary signal queuing, forms exactly at the red and clears exactly at the green, and the stopped_vehicle definition explicitly excludes it, so I judged it to be normal traffic rather than a congestion event. A labeller using a looser definition would probably want five segments here."
+  ],
+  "caveats": [
+    "The stopped_vehicle at t=0-26.1 could alternatively be a red-light wait on the road the SUV is using (it is heading down-right and out of the bottom-right corner, so its own stop line and signal are off-frame or unresolvable). Arguments against that reading: no other vehicle queued with it, no stop line or lane marking anywhere near it, and the measurable signal went green at t=20.0 while it still sat for 6 more seconds. Arguments for it: I cannot see the signal that governs it. This is why the confidence is medium.",
+    "The stop's true start is before the clip; start=0.0 is a bound, not a measured onset. If the grader needs the real onset it is not recoverable from this clip.",
+    "signal_phase_confidence: the lamp colours were read from an 0.5 s-sampled colour-ratio score in a 36x58 px box around each head, giving a very clean two-state signal; the transition timestamps are accurate to about +/-0.5 s. I could not resolve which approach each of the two visible heads governs, so I did not use them to adjudicate red_light.",
+    "All boundaries are from 2 s contact-sheet tiles plus zoom sheets at 0.25-1 s steps; timing error is about +/-0.5 s for the stopped_vehicle because I pinned it with frame-accurate template matching, and worse (+/-1 s) for anything judged from tiles alone.",
+    "yolo11n person detections in this scene are small and noisy; the pedestrian-density map used for the jaywalking decision is detector-derived and could in principle miss a lone walker, so my jaywalking 'absent' is based on detector evidence plus about eight targeted high-zoom visual checks of the busiest pedestrian flows, not on an exhaustive frame-by-frame look.",
+    "I could not verify whether the small dark objects flagged as static at (1112,440)-(1174,518) at t=166.6-174.8 and t=189.2-197.4 are people standing near the kerb or something in the road; they are only ~8.4 s each, so they would not change any label either way."
+  ]
+}
