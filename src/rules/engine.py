@@ -129,6 +129,35 @@ class RuleEngine:
         return track.deceleration_mps2()
 
     @staticmethod
+    def _speed_drop(track: TrackState, timestamp: float, window: float = 1.0) -> float:
+        """Metres per second lost over the last ``window`` seconds.
+
+        This is the braking signal, and it is deliberately a *sustained* speed
+        change rather than the instantaneous acceleration. Differentiating a
+        smoothed velocity over a 0.1 s sampling interval mostly measures
+        detector jitter: a car held at a steady 10 m/s easily shows 5 m/s^2 of
+        apparent deceleration as the box wobbles by a few pixels. Losing
+        2.5 m/s over a full second, by contrast, is roughly a quarter of g and
+        does not happen to a stationary box.
+
+        Returns 0.0 when the history is too short to judge.
+        """
+        points = track.recent_points(window, timestamp)
+        if len(points) < 2:
+            return 0.0
+        t0, x0, y0 = points[0]
+        t1, x1, y1 = points[-1]
+        dt = t1 - t0
+        if dt < 0.25 * window:
+            return 0.0
+        start = math.hypot(x0, y0)
+        end = math.hypot(x1, y1)
+        scale = track.metres_per_pixel
+        if scale is None:
+            return 0.0
+        return max(0.0, (start - end) * scale)
+
+    @staticmethod
     def _closing_speed_mps(first: TrackState, second: TrackState) -> float:
         """Rate at which the gap between two tracks shrinks, in m/s."""
         dx = second.center[0] - first.center[0]
@@ -540,30 +569,36 @@ class RuleEngine:
         if not getattr(scene, "has_geometry", False) or not scene.config.crossings:
             return self._inactive(label)
         people = [t for t in state.tracks if TrackManager.is_person(t)]
-        vehicles = [t for t in state.tracks if TrackManager.is_vehicle(t) and t.speed > 3.0]
+        vehicles = [t for t in state.tracks if TrackManager.is_vehicle(t) and t.speed_mps and t.speed_mps > 1.0]
+        active_keys: set[tuple[Any, ...]] = set()
         for person in people:
-            crossing = scene.crossing_for_point(person.center)
-            if crossing is None:
+            # The pedestrian must be *on* the crossing, not merely near it. With
+            # eight or nine people in every frame of these clips, "a pedestrian
+            # and a vehicle are both somewhere near this crossing" is true almost
+            # all the time, which is what made this the second-largest source of
+            # false positives.
+            standing_on = scene.crossing_for_point(person.center)
+            if standing_on is None:
                 continue
             for vehicle in vehicles:
-                vehicle_crossing = scene.crossing_for_point(vehicle.center) or scene.crossing_for_point(vehicle.bottom_center)
-                if vehicle_crossing is not crossing and not (
-                    vehicle_crossing is not None
-                    and vehicle_crossing[0] == crossing[0]
-                    and vehicle_crossing[1] == crossing[1]
-                ):
+                crossing = scene.crossing_for_point(vehicle.center)
+                if crossing is None:
+                    crossing = scene.crossing_for_point(vehicle.bottom_center)
+                if crossing is None or list(crossing) != list(standing_on):
                     continue
                 key = (label, person.track_id, vehicle.track_id)
                 since = self._condition_since(key, True, state.timestamp)
                 if since is not None:
-                    return RuleSignal(
-                        label,
-                        True,
-                        confidence=0.75,
-                        evidence={"person_id": person.track_id, "vehicle_id": vehicle.track_id},
-                        start_hint=since,
-                    )
-        self._condition_start = {k: v for k, v in self._condition_start.items() if k[0] != label}
+                    active_keys.add(key)
+                    if state.timestamp - since <= float(cfg.get("hold", 2.0)) + 1.0:
+                        return RuleSignal(
+                            label,
+                            True,
+                            confidence=0.75,
+                            evidence={"person_id": person.track_id, "vehicle_id": vehicle.track_id},
+                            start_hint=since,
+                        )
+        self._retain_conditions(label, active_keys)
         return self._inactive(label)
 
     def _interaction_rule(self, state: FrameState, label: str) -> RuleSignal:
@@ -591,7 +626,10 @@ class RuleEngine:
                     # each other. Requiring an actual deceleration is what
                     # separates this from two cars merely driving near each
                     # other, which happens constantly in dense traffic.
-                    evasive = max(self._deceleration(first), self._deceleration(second))
+                    evasive = max(
+                        self._speed_drop(first, state.timestamp),
+                        self._speed_drop(second, state.timestamp),
+                    )
                     side_swipe = abs(first.center[0] - second.center[0]) > 0.25 * max(
                         first.width, second.width, 1.0
                     )

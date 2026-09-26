@@ -72,12 +72,12 @@
     },
     "near_miss": {
       "enabled": true,
-      "deceleration_mps2": 2.5,
       "closing_mps": 2.0,
       "gap_m": 3.0,
       "overlap": 0.02,
       "ttc": 2.0,
-      "hold": 2.0
+      "hold": 2.0,
+      "speed_drop_mps": 2.5
     },
     "accident": {
       "enabled": true,
