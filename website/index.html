@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fixed-Camera Traffic Event Detection &amp; Accident Anticipation — Team TODO(team)</title>
+<meta name="description" content="Traffic Event Detection and Accident Anticipation from a Fixed Road Camera. 14 event classes as time segments plus a causal per-frame accident-risk curve, from a single elevated 4K CCTV feed. WIUT / Toyota Tesseract hackathon, team 798C27C9.">
+<meta name="color-scheme" content="dark light">
+<meta property="og:title" content="Traffic Event Detection &amp; Accident Anticipation from a Fixed Road Camera">
+<meta property="og:description" content="14 traffic-event classes as time segments plus a causal accident-risk curve, from one elevated 4K CCTV feed. Team 798C27C9.">
+<meta property="og:image" content="static/img/scene_preview.jpg">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1220'/%3E%3Cpath d='M5 21h22' stroke='%2338bdf8' stroke-width='2.5' stroke-linecap='round'/%3E%3Crect x='7' y='11' width='7' height='6' rx='1.5' fill='%2338bdf8'/%3E%3Crect x='17' y='14' width='6' height='5' rx='1.5' fill='%23f59e0b'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar" id="topbar">
+  <div class="wrap topbar-in">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#0b1220"/><path d="M5 21h22" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/><rect x="7" y="11" width="7" height="6" rx="1.5" fill="#38bdf8"/><rect x="17" y="14" width="6" height="5" rx="1.5" fill="#f59e0b"/></svg>
+      <span>Fixed-Camera Traffic AI</span>
+    </a>
+    <nav class="nav" id="nav" aria-label="Sections">
+      <a href="#problem">Problem</a>
+      <a href="#eda">EDA</a>
+      <a href="#results">Results</a>
+      <a href="#demo">Live demo</a>
+      <a href="#report">Report</a>
+      <a href="#team">Team</a>
+      <a href="#links">Links</a>
+    </nav>
+    <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="nav" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ================================================================== HERO -->
+<section class="hero" id="top">
+  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="wrap hero-in">
+    <p class="kicker">
+      <span class="pill pill-live">Team 798C27C9</span>
+      <span class="pill">WIUT / Toyota Tesseract hackathon</span>
+      <span class="pill">Part A + Part B</span>
+    </p>
+    <h1>Traffic events and accident risk from <em>one</em> fixed road camera.</h1>
+    <p class="lede">
+      A single elevated 4K CCTV feed, no fisheye, no LiDAR, no second camera. From it we
+      output <strong>14 event classes as time segments</strong> and a <strong>causal
+      per-frame accident-risk curve</strong> — and the same code runs live on a video
+      you upload, right here, on CPU.
+    </p>
+
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#demo">Run the live demo</a>
+      <a class="btn" href="#results">See measured output</a>
+      <a class="btn btn-ghost" href="demo/app.py" download>Backend source</a>
+    </div>
+
+    <div class="hero-stats" id="heroStats">
+      <!-- filled from static/data/eda.json + results.json; never hand written -->
+      <div class="stat skeleton" aria-hidden="true"></div>
+      <div class="stat skeleton" aria-hidden="true"></div>
+      <div class="stat skeleton" aria-hidden="true"></div>
+      <div class="stat skeleton" aria-hidden="true"></div>
+    </div>
+    <p class="hero-note" id="heroNote">Loading measured numbers…</p>
+  </div>
+</section>
+
+<!-- ================================================================== SCENE -->
+<section class="section" id="scene">
+  <div class="wrap">
+    <h2 class="sec-title">The scene</h2>
+    <p class="sec-lede">
+      One fixed, elevated, wide-angle camera over a large signalised intersection in
+      Tashkent, Uzbekistan. Two roads cross diagonally, there are three marked
+      crosswalks, and bus traffic is heavy. The camera never moves — which is the whole
+      point, and also the whole difficulty.
+    </p>
+    <figure class="shot">
+      <img src="static/img/scene_preview.jpg" alt="The intersection seen from the elevated fixed camera, with the hand-drawn lane, stop-line and crosswalk geometry of the scene config overlaid." loading="lazy" decoding="async" width="1600" height="900">
+      <figcaption>
+        The source frame with <code>configs/scenes/data_video1.json</code> drawn on top:
+        two diagonal corridors (magenta / red / blue), four stop lines (yellow), the
+        centre markings (blue), three crosswalk polygons and three traffic-light ROIs.
+        That geometry is what turns raw trajectories into the line- and signal-based
+        event classes. <em>TODO(team): replace with a frame from the two sample clips
+        once a per-camera scene file exists.</em>
+      </figcaption>
+    </figure>
+    <div class="grid-3" id="sceneFacts">
+      <div class="card"><h3>Why a fixed camera</h3><p>Calibration is a one-off. No ego-motion, no rolling shutter to fight, no depth network. Geometry can be measured once and hard-coded, and then every rule is a cheap inequality on a trajectory measured in metres.</p></div>
+      <div class="card"><h3>Why it is hard</h3><p>Everything is 50–150&nbsp;m away in a 4K frame squeezed into a 640&nbsp;px detector input. Buses occlude cars, pedestrians merge into crowds, and a single wrong box corrupts a whole track for the rest of the clip. In the two sample clips the detector reports a mean of <span data-from="eda" data-stat="objects_mean_A">—</span> and <span data-from="eda" data-stat="objects_mean_B">—</span> road users per sampled frame.</p></div>
+      <div class="card"><h3>Why it matters</h3><p>All 14 official classes are things you can only judge from a <em>track over time</em>, not from a single frame. A stopped car only becomes <code>stopped_vehicle</code> after 10&nbsp;s; a swerve only becomes <code>near_miss</code> <em>because of</em> the braking that preceded it.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ PROBLEM -->
+<section class="section alt" id="problem">
+  <div class="wrap">
+    <h2 class="sec-title">Problem &amp; approach</h2>
+    <p class="sec-lede">
+      The organizers hand you two functions. <code>detect_events(path)</code> returns
+      <code>[start_sec, end_sec, label]</code> segments. <code>RiskEstimator.step(frame, t)</code>
+      returns a number per frame. Everything between them is yours.
+    </p>
+
+    <div class="pipeline-wrap">
+      <svg id="pipeline" viewBox="0 0 1180 480" role="img" aria-labelledby="pipeTitle pipeDesc" class="pipeline">
+        <title id="pipeTitle">Pipeline diagram</title>
+        <desc id="pipeDesc">Part A: video goes to a stride-3 YOLO11 ONNX detector, then a two-stage ByteTrack-style IoU tracker, then a TrackManager that owns the canonical state, then a RuleEngine that turns tracks plus the calibrated scene geometry into per-frame RuleSignals, then a TemporalSegmenter that merges them into valid non-overlapping intervals. In parallel, causal RiskFeatures taken from the same TrackManager feed a heuristic scorer that emits the per-frame risk curve, which the official metric turns into alarms.</desc>
+        <defs>
+          <marker id="arw" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0 0 L9 5 L0 10 z" fill="#8fb6d6"/>
+          </marker>
+          <linearGradient id="gLearn" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#16456f"/><stop offset="1" stop-color="#0d2237"/>
+          </linearGradient>
+          <linearGradient id="gRule" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#4d3113"/><stop offset="1" stop-color="#251a0b"/>
+          </linearGradient>
+          <linearGradient id="gRisk" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#3f2154"/><stop offset="1" stop-color="#1e1129"/>
+          </linearGradient>
+          <linearGradient id="gOut" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#0f4a29"/><stop offset="1" stop-color="#08210f"/>
+          </linearGradient>
+        </defs>
+
+        <!-- ============================ PART A ============================ -->
+        <text class="pl" x="16" y="26">PART A &#8212; event segments <tspan class="pl-sub">[start_sec, end_sec, label]</tspan></text>
+
+        <g class="node learn">
+          <rect x="16" y="44" width="104" height="66" rx="10" fill="url(#gLearn)" stroke="#4aa3e0"/>
+          <text class="nt" x="68" y="72">VIDEO</text>
+          <text class="ns" x="68" y="92">.mp4 in</text>
+        </g>
+        <path class="arw" d="M122 77 H134" marker-end="url(#arw)"/>
+
+        <g class="node learn">
+          <rect x="136" y="44" width="188" height="66" rx="10" fill="url(#gLearn)" stroke="#4aa3e0"/>
+          <rect x="222" y="49" width="97" height="15" rx="7.5" fill="#0b1c2b" stroke="#4aa3e0" stroke-width="0.8"/>
+          <text class="chip" x="270.5" y="60">LEARNED</text>
+          <text class="nt" x="230" y="82">YOLO11n &#183; ONNX</text>
+          <text class="ns" x="230" y="99">stride 3 &#183; 640 px</text>
+          <text class="ns2" x="230" y="114">conf 0.25 &#183; 10.7 MB</text>
+        </g>
+        <path class="arw" d="M326 77 H338" marker-end="url(#arw)"/>
+
+        <g class="node rule">
+          <rect x="340" y="44" width="166" height="66" rx="10" fill="url(#gRule)" stroke="#c98a3a"/>
+          <text class="nt" x="423" y="64">ByteTrack-style</text>
+          <text class="ns" x="423" y="82">high-conf pass</text>
+          <text class="ns2" x="423" y="99">then low-conf pass</text>
+        </g>
+        <path class="arw" d="M508 77 H520" marker-end="url(#arw)"/>
+
+        <g class="node rule">
+          <rect x="522" y="44" width="188" height="66" rx="10" fill="url(#gRule)" stroke="#c98a3a"/>
+          <text class="nt" x="616" y="64">TrackManager</text>
+          <text class="ns" x="616" y="82">single source of truth</text>
+          <text class="ns2" x="616" y="99">vel &#183; accel &#183; lane &#183; TTC</text>
+        </g>
+        <path class="arw" d="M712 77 H724" marker-end="url(#arw)"/>
+
+        <g class="node rule">
+          <rect x="726" y="44" width="188" height="66" rx="10" fill="url(#gRule)" stroke="#c98a3a"/>
+          <text class="nt" x="820" y="64">RuleEngine</text>
+          <text class="ns" x="820" y="82">14 rules &#8594; RuleSignal</text>
+          <text class="ns2" x="820" y="99">no model, no video reads</text>
+        </g>
+        <path class="arw" d="M916 77 H928" marker-end="url(#arw)"/>
+
+        <g class="node out">
+          <rect x="930" y="44" width="234" height="66" rx="10" fill="url(#gOut)" stroke="#4ade80"/>
+          <text class="nt" x="1047" y="64">TemporalSegmenter</text>
+          <text class="ns" x="1047" y="82">min duration per class</text>
+          <text class="ns2" x="1047" y="99">merge gap &#8804; 1 s &#183; no overlap</text>
+        </g>
+
+        <g class="node scene">
+          <rect x="694" y="152" width="248" height="60" rx="10" fill="#0f1c28" stroke="#4b6a86" stroke-dasharray="5 4"/>
+          <text class="nt" x="818" y="172">SceneContext</text>
+          <text class="ns" x="818" y="189">lanes &#183; stop lines &#183; crosswalks &#183; light ROIs</text>
+          <text class="ns2" x="818" y="204">configs/scenes/&lt;video&gt;.json</text>
+        </g>
+        <path class="arw" d="M818 152 V114" marker-end="url(#arw)"/>
+        <text class="pl-note" x="694" y="230">line and signal rules stay OFF without geometry &#8212; never guessed</text>
+
+        <!-- ============================ PART B ============================ -->
+        <text class="pl" x="16" y="270">PART B &#8212; causal risk curve <tspan class="pl-sub">[t_sec, score], one point per frame</tspan></text>
+
+        <path class="arw arw-dash" d="M616 110 V136 H70 V290" marker-end="url(#arw)"/>
+        <text class="pl-note" x="122" y="152">a second, independent causal runtime — it never reads Part A's state, and never the future</text>
+
+        <g class="node risk">
+          <rect x="16" y="292" width="178" height="66" rx="10" fill="url(#gRisk)" stroke="#a855f7"/>
+          <text class="nt" x="105" y="312">RiskFeatures</text>
+          <text class="ns" x="105" y="330">min TTC &#183; min distance</text>
+          <text class="ns2" x="105" y="347">own detector, own stride</text>
+        </g>
+        <path class="arw" d="M196 325 H208" marker-end="url(#arw)"/>
+
+        <g class="node risk">
+          <rect x="210" y="292" width="216" height="66" rx="10" fill="url(#gRisk)" stroke="#a855f7"/>
+          <text class="nt" x="318" y="312">Heuristic scorer + EMA</text>
+          <text class="ns" x="318" y="330">max() of 6 causal terms</text>
+          <text class="ns2" x="318" y="347">hold last score between samples</text>
+        </g>
+        <path class="arw" d="M428 325 H440" marker-end="url(#arw)"/>
+
+        <g class="node out">
+          <rect x="442" y="292" width="170" height="66" rx="10" fill="url(#gOut)" stroke="#4ade80"/>
+          <text class="nt" x="527" y="312">risk curve</text>
+          <text class="ns" x="527" y="330">P(accident &#8804; 5 s)</text>
+          <text class="ns2" x="527" y="347">score &#8712; [0, 1]</text>
+        </g>
+        <path class="arw" d="M614 325 H626" marker-end="url(#arw)"/>
+
+        <g class="node rule">
+          <rect x="628" y="292" width="174" height="66" rx="10" fill="url(#gRule)" stroke="#c98a3a"/>
+          <text class="nt" x="715" y="312">Alarms</text>
+          <text class="ns" x="715" y="330">runs &#8805; 0.5</text>
+          <text class="ns2" x="715" y="347">runs &lt; 2 s apart merged</text>
+        </g>
+        <path class="arw" d="M804 325 H816" marker-end="url(#arw)"/>
+
+        <g class="node out">
+          <rect x="818" y="292" width="346" height="66" rx="10" fill="url(#gOut)" stroke="#4ade80"/>
+          <text class="nt" x="991" y="312">Score_B = 0.4&#183;AP + 0.4&#183;F1_alarm + 0.2&#183;mTTA/10</text>
+          <text class="ns" x="991" y="330">AP is chance-normalised, so a flat or random score scores 0</text>
+          <text class="ns2" x="991" y="347">Model score M = 0.7&#183;Score_A + 0.3&#183;Score_B</text>
+        </g>
+
+        <!-- ============================ legend ============================ -->
+        <g class="legend">
+          <rect x="16" y="392" width="1148" height="72" rx="10" fill="#0a121c" stroke="#22384d"/>
+          <rect x="36" y="408" width="13" height="13" rx="3" fill="#16456f" stroke="#4aa3e0"/>
+          <text class="lg" x="57" y="420">learned &#8212; one box</text>
+          <rect x="240" y="408" width="13" height="13" rx="3" fill="#4d3113" stroke="#c98a3a"/>
+          <text class="lg" x="261" y="420">rule / arithmetic</text>
+          <rect x="440" y="408" width="13" height="13" rx="3" fill="#0f4a29" stroke="#4ade80"/>
+          <text class="lg" x="461" y="420">output in the official submission format</text>
+          <rect x="742" y="408" width="13" height="13" rx="3" fill="#0f1c28" stroke="#4b6a86"/>
+          <text class="lg" x="763" y="420">external config</text>
+          <rect x="900" y="408" width="13" height="13" rx="3" fill="#3f2154" stroke="#a855f7"/>
+          <text class="lg" x="921" y="420">Part B</text>
+        <p>One pass over the video serves both parts. Part A and Part B each build their own perception
+          stack: Part B samples the detector more coarsely and holds the previous score between samples, so
+          the two passes cost different amounts. <strong>That means the detector runs twice</strong> — see
+          the runtime accounting in the <a href="#report">report</a>, where we add it up honestly.</p>
+        </g>
+      </svg>
+    </div>
+
+    <div class="grid-2">
+      <div class="card card-learn">
+        <h3><span class="tag tag-learn">Learned</span> perception</h3>
+        <p><strong>YOLO11n (ONNX, 10.7&nbsp;MB, 640&nbsp;px, conf 0.25)</strong> — a stock COCO checkpoint, exported to ONNX so the offline evaluation host needs no PyTorch. It is the <em>only</em> learned component in Part A. It sees 8 of the 80 COCO classes and we keep the road-user ones.</p>
+        <p>Everything downstream of the box is arithmetic. There is no learned event classifier, and we say so plainly rather than dressing up a threshold as a model.</p>
+      </div>
+      <div class="card card-rule">
+        <h3><span class="tag tag-rule">Rule-based</span> events</h3>
+        <p>14 hand-written rules over the same <code>RiskFeatures</code>-style state: time-to-collision, closing speed, deceleration, lane direction vs. velocity, stop-line crossing, crosswalk occupancy, and duration timers. Thresholds live in <code>configs/default.json</code> and are overridable by environment variable.</p>
+        <p><strong>Why rules for 12 of 14:</strong> a red-light violation is a geometric fact, not a statistical one. Training a network to relearn "crossed the line while the light was red" from a handful of labels would burn the whole budget and generalise worse.</p>
+      </div>
+      <div class="card card-risk">
+        <h3><span class="tag tag-risk">Part B</span> risk</h3>
+        <p>A heuristic scorer: TTC ramp, proximity, closing speed, braking, pedestrian conflict, plus the current <code>accident</code>/<code>near_miss</code>/<code>wrong_way</code> rule candidates, EMA-smoothed. It is <strong>causal by construction</strong> — <code>step()</code> only ever reads feature samples whose timestamp is ≤ the current frame, and never opens the video.</p>
+        <p>It is explicitly <em>not</em> a trained future-label classifier. See the <a href="#report">report</a> for what that costs us.</p>
+      </div>
+      <div class="card card-risk">
+        <h3><span class="tag tag-risk">Part B</span> boundary</h3>
+        <p>Part B does <strong>not</strong> reuse Part A's perception. <code>RiskEstimator</code> builds its
+          own causal runtime — detector, tracker and the same rules — and drives it from the frame handed to
+          <code>step()</code>. It is strictly causal by construction: it never opens the video and never
+          looks ahead.</p>
+        <p>It samples the detector at its own, coarser stride (<code>risk.detector_stride</code>) and
+          <strong>repeats the previous score exactly</strong> on the frames in between, which the task
+          permits. That is also why Part B is not free — see the honest cost accounting in the
+          <a href="#report">report</a>.</p>
+      </div>
+    </div>
+
+    <h3 class="sub-title">The 14 classes and how each one is decided</h3>
+    <div class="table-scroll">
+      <table class="tbl tbl-classes" id="classTable">
+        <thead><tr><th>Class</th><th>Decision rule (all read from <code>src/rules/engine.py</code>)</th><th>Needs scene geometry?</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="fineprint" id="classTableNote"></p>
+  </div>
+</section>
+
+<!-- ==================================================================== EDA -->
+<section class="section" id="eda">
+  <div class="wrap">
+    <h2 class="sec-title">EDA of the sample clips</h2>
+    <p class="sec-lede">
+      Every number in this section was produced by
+      <code>website/tools/analyze_samples.py</code>, which runs the repository's own
+      detector over the two sample clips and writes one JSON file. The page renders that
+      file and nothing else. If you want to re-derive it, the command is in
+      <code>website/README.md</code>.
+    </p>
+    <div class="provenance" id="edaProv"></div>
+
+    <div class="tabs" id="edaTabs" role="tablist" aria-label="Sample clip"></div>
+    <div id="edaBody" class="eda-body"><div class="loading">Loading EDA data…</div></div>
+  </div>
+</section>
+
+<!-- ================================================================ RESULTS -->
+<section class="section alt" id="results">
+  <div class="wrap">
+    <h2 class="sec-title">Measured output on the sample clips</h2>
+    <p class="sec-lede">
+      This section is generated by <code>website/tools/run_samples.py</code>, which calls
+      the competition entry points <code>solution.detect_events()</code> and
+      <code>solution.RiskEstimator</code> exactly the way <code>run_submission.py</code>
+      does. It reads <code>static/data/results.json</code>; if that file is absent the
+      section says so instead of inventing anything.
+    </p>
+    <div class="provenance" id="resProv"></div>
+    <div id="resBody"><div class="loading">Loading results…</div></div>
+  </div>
+</section>
+
+<!-- =================================================================== DEMO -->
+<section class="section" id="demo">
+  <div class="wrap">
+    <h2 class="sec-title">Live demo — drop your own clip</h2>
+    <p class="sec-lede">
+      The same <code>solution.py</code> the graders run, served over HTTP. Drop an
+      <code>.mp4</code> (or <code>.webm</code>/<code>.mov</code>) on the box and the
+      backend runs Part A + Part B on CPU and returns the event segments, the risk
+      curve and annotated frames.
+    </p>
+
+    <div class="demo-grid">
+      <div class="card demo-card">
+        <h3>1 — Pick a file</h3>
+        <div id="dropzone" class="dropzone" tabindex="0" role="button"
+             aria-label="Choose a video file to analyse">
+          <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <strong>Drop a video here</strong>
+          <span>or click to choose a file</span>
+        </div>
+        <input type="file" id="fileInput" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" hidden>
+        <div class="limits">
+          <div><span class="k">Max length</span><span class="v" id="limitDur">120 s</span></div>
+          <div><span class="k">Max size</span><span class="v" id="limitSize">150 MB</span></div>
+          <div><span class="k">Device</span><span class="v">CPU (ONNX Runtime)</span></div>
+        </div>
+        <p class="hint">A 30&ndash;60&nbsp;s clip is plenty. Part A runs at about
+          <b><span id="rtEstimate">1.5</span>&times;&nbsp;<span id="rtUnit">real time on a CPU</span></b>,
+          so a 60&nbsp;s clip takes roughly 90&nbsp;s. Long clips are rejected, never silently truncated.</p>
+        <div class="row">
+          <button class="btn btn-primary" id="runBtn" disabled>Run analysis</button>
+          <button class="btn btn-ghost" id="cancelBtn" hidden>Cancel</button>
+        </div>
+        <div class="progress" id="progress" hidden>
+          <div class="bar"><i id="progressBar"></i></div>
+          <div class="progress-meta">
+            <span id="progressStage">starting…</span>
+            <span id="progressPct">0 %</span>
+          </div>
+          <p class="hint" id="progressHint"></p>
+        </div>
+        <div class="alert" id="demoAlert" hidden></div>
+      </div>
+
+      <div class="card demo-card">
+        <h3>2 — Output</h3>
+        <div id="demoOut" class="demo-out"><div class="loading">Waiting for a file.</div></div>
+      </div>
+    </div>
+
+    <h3 class="sub-title">What the backend does, and what happens when it cannot</h3>
+    <div class="grid-3">
+      <div class="card">
+        <h4>Job model</h4>
+        <p><code>POST /api/jobs</code> with the raw file body returns a job id immediately;
+          the browser polls <code>GET /api/jobs/&lt;id&gt;</code> for stage and
+          percentage. You get progress on a 2-minute clip instead of a spinner, and a
+          5-minute clip does not look like a hang. One inference at a time — the queue
+          is a lock, so the box stays responsive.</p>
+      </div>
+      <div class="card">
+        <h4>Graceful degradation</h4>
+        <p>If <code>weights/yolo11n.onnx</code> is missing the pipeline is <em>not</em>
+          allowed to 500. The job still reports the real video metadata and returns an
+          empty event list with <code>degraded: true</code> and a human-readable reason.
+          <code>GET /api/health</code> tells you which detector will run before you
+          upload anything.</p>
+      </div>
+      <div class="card">
+        <h4>Byte-range video</h4>
+        <p>The static handler implements HTTP <code>Range</code>, so the preview clips
+          seek instantly instead of downloading 10&nbsp;MB first. Without it the
+          click-to-seek extra-credit feature is unusable on a phone.</p>
+      </div>
+    </div>
+    <p class="fineprint">
+      The static site and the demo backend are the same process:
+      <code>python website/demo/app.py</code> serves this page and the API on
+      <code>http://127.0.0.1:8000</code>. Deployed on a static host the page still works
+      fully; only the upload box is disabled, and it says so.
+    </p>
+  </div>
+</section>
+
+<!-- ================================================================= REPORT -->
+<section class="section alt" id="report">
+  <div class="wrap">
+    <h2 class="sec-title">Report</h2>
+    <p class="sec-lede">What we built, what works, what does not, and what is next. The failures are the useful part.</p>
+    <div id="reportBody" class="report">
+      <div class="loading">Loading report…</div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================== TEAM -->
+<section class="section" id="team">
+  <div class="wrap">
+    <h2 class="sec-title">Team</h2>
+    <p class="sec-lede">
+      Three people. Competition team id <code>798C27C9</code>.
+    </p>
+    <div class="todo-banner">
+      <strong>TODO(team) — needs a human.</strong>
+      Names, roles and links below are deliberate placeholders, not invented data. Fill them in
+      <code>website/assets/site.js</code> — search for <code>TODO(team)</code> in the
+      <code>TEAM</code> and <code>WORK</code> arrays. Nothing here was guessed, and no name,
+      email, handle or institution has been made up.
+    </div>
+    <div class="team-grid" id="teamGrid"></div>
+    <h3 class="sub-title">Division of work</h3>
+    <div class="table-scroll">
+      <table class="tbl" id="workTable">
+        <thead><tr><th>Area</th><th>Owner</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== LINKS -->
+<section class="section alt" id="links">
+  <div class="wrap">
+    <h2 class="sec-title">Links &amp; artefacts</h2>
+    <p class="sec-lede">Everything a judge might want to open.</p>
+    <div class="links-grid" id="linksGrid"></div>
+    <p class="fineprint" id="linksNote"></p>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="wrap">
+    <p>
+      Team <span class="todo-inline">TODO(team)</span> · id <code>798C27C9</code> ·
+      built with numpy, OpenCV and ONNX Runtime. No CDN, no trackers, no build step.
+    </p>
+    <p class="fineprint" id="footNote"></p>
+  </div>
+</footer>
+</main>
+
+<script src="assets/charts.js"></script>
+<script src="assets/site.js"></script>
+<script src="assets/eda.js"></script>
+<script src="assets/results.js"></script>
+<script src="assets/report.js"></script>
+<script src="assets/demo.js"></script>
+</body>
+</html>
