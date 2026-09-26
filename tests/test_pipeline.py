@@ -11,7 +11,7 @@ import numpy as np
 
 from src.contracts import Detection
 from src.part_a import run_part_a
-from src.part_b import CausalRiskEstimator, clear_risk_features, get_risk_features
+from src.part_b import CausalRiskEstimator
 
 
 class PipelineTests(unittest.TestCase):
@@ -47,7 +47,7 @@ class PipelineTests(unittest.TestCase):
                         "active_classes": ["stopped_vehicle"],
                         "rules": {
                             "wrong_way": {"enabled": False},
-                            "stopped_vehicle": {"enabled": True, "speed": 1.0, "duration": 10.0},
+                            "stopped_vehicle": {"enabled": True, "speed_mps": 1.0, "duration": 10.0},
                         },
                         "temporal": {"min_duration": {"stopped_vehicle": 10.0}},
                     }
@@ -64,12 +64,13 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(len(events), 1)
             self.assertEqual(events[0][2], "stopped_vehicle")
             self.assertGreaterEqual(events[0][1] - events[0][0], 10.0)
-            self.assertIsNotNone(get_risk_features("stopped.mp4"))
+            # Part B is independent of Part A, so it must work right after a
+            # Part A run without any shared state being handed over.
             risk = CausalRiskEstimator(str(config))
             risk.reset({"video_id": "stopped.mp4", "fps": 5.0, "width": 320, "height": 240, "n_frames": 60})
             score = risk.step(np.zeros((240, 320, 3), dtype=np.uint8), 0.0)
             self.assertGreaterEqual(score, 0.0)
-            clear_risk_features("stopped.mp4")
+            self.assertLessEqual(score, 1.0)
 
 
 if __name__ == "__main__":

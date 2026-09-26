@@ -12,10 +12,8 @@ import numpy as np
 
 from .config import apply_environment_overrides, load_config
 from .contracts import FrameState, SceneState
-from .part_b import clear_risk_features, publish_risk_features
 from .perception.detector import build_detector
 from .perception.tracker import build_tracker
-from .risk.features import extract_risk_features
 from .rules.engine import OFFICIAL_LABELS, RuleEngine
 from .scene.config import SceneContext, load_scene_config
 from .scene.signals import TrafficLightReader
@@ -99,7 +97,6 @@ class PartAPipeline:
 
     def run(self, video_path: str) -> list[list[float | str]]:
         started = time.perf_counter()
-        clear_risk_features(video_path)
         reader = VideoReader(video_path)
         info = reader.info
         # OpenCV occasionally reports zero for streamed files. Keep a usable
@@ -126,7 +123,6 @@ class PartAPipeline:
             if self.dump_jsonl:
                 flags_file = (self.debug_dir / f"{Path(video_path).stem}_flags.jsonl").open("w", encoding="utf-8")
         processed = 0
-        risk_samples: list[dict[str, Any]] = []
         last_timestamp = 0.0
         perception_warned = False
         try:
@@ -163,14 +159,6 @@ class PartAPipeline:
                     for label, signal in signals.items()
                     if label in self.active_classes
                 }
-                risk_samples.append(
-                    extract_risk_features(
-                        state,
-                        signals,
-                        near_distance=float(self.config.get("risk", {}).get("near_distance_px", 180.0)),
-                        pedestrian_distance=float(self.config.get("risk", {}).get("pedestrian_distance_px", 140.0)),
-                    ).to_dict()
-                )
                 segmenter.add(timestamp, filtered)
                 if flags_file is not None:
                     flags_file.write(
@@ -195,7 +183,6 @@ class PartAPipeline:
                 flags_file.close()
         if duration <= 0.0 and last_timestamp > 0.0:
             duration = last_timestamp + 1.0 / max(1.0, info.fps)
-        publish_risk_features(video_path, risk_samples)
         events = segmenter.finalize(duration)
         elapsed = time.perf_counter() - started
         print(
