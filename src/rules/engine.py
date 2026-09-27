@@ -809,10 +809,36 @@ class RuleEngine:
                     in_path = self._in_path(first, second, state) or self._in_path(
                         second, first, state
                     )
+                    # Even with a pedestrian in the path and a hard brake, most
+                    # of this is a car *yielding*, which is correct driving. A
+                    # yield is a smooth, anticipated deceleration spread over
+                    # the approach; a near miss is an abrupt one that happens
+                    # within about a second of the conflict appearing. Comparing
+                    # a short window against a longer one separates them without
+                    # guessing: a sustained yield loses roughly as much speed
+                    # over 2.5 s as over 0.6 s, so the short window is only a
+                    # small fraction of the long one, while a sudden brake is
+                    # visible in both and the short window dominates.
+                    short_window = float(cfg.get("abrupt_window_sec", 0.6))
+                    long_window = float(cfg.get("approach_window_sec", 2.5))
+                    abrupt = False
+                    for first_track, second_track in ((first, second), (second, first)):
+                        drop_short = self._speed_drop(
+                            first_track, state.timestamp, short_window
+                        )
+                        drop_long = self._speed_drop(
+                            first_track, state.timestamp, long_window
+                        )
+                        if drop_short >= float(cfg.get("speed_drop_mps", 2.5)) and (
+                            drop_long <= 0.0
+                            or drop_short >= float(cfg.get("abrupt_fraction", 0.6)) * drop_long
+                        ):
+                            abrupt = True
+                            break
                     condition = (
                         vulnerable
                         and in_path
-                        and evasive >= float(cfg.get("speed_drop_mps", 2.5))
+                        and abrupt
                         and closing >= float(cfg.get("closing_mps", 2.0))
                         and (
                             (gap is not None and gap <= float(cfg.get("gap_m", 3.0)))
@@ -822,6 +848,7 @@ class RuleEngine:
                     evidence["deceleration_mps2"] = round(evasive, 2)
                     evidence["vulnerable"] = bool(vulnerable)
                     evidence["in_path"] = bool(in_path)
+                    evidence["abrupt"] = bool(abrupt)
                 else:  # accident
                     # Contact is a geometric fact, not a speed threshold: once
                     # two bodies overlap, they overlap. Requiring closing speed
