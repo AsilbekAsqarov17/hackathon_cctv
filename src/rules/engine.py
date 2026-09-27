@@ -796,8 +796,22 @@ class RuleEngine:
                         self._special(t, ("bicycle", "motorcycle", "bike"))
                         for t in (first, second)
                     )
+                    # Being close to a pedestrian is not a conflict. Measured
+                    # over a full development clip this rule fired on 13.2% of
+                    # frames from 129 distinct pairs, every one of them
+                    # vulnerable, with a median edge-to-edge gap of well under a
+                    # metre: pedestrians standing beside vehicles whose boxes
+                    # overlap in image projection. What distinguishes a near
+                    # miss is the pedestrian being *in the vehicle's path* --
+                    # ahead of it, within its width -- rather than next to it,
+                    # which at an intersection is simply the normal state of
+                    # affairs. The same corridor test failure_to_yield uses.
+                    in_path = self._in_path(first, second, state) or self._in_path(
+                        second, first, state
+                    )
                     condition = (
                         vulnerable
+                        and in_path
                         and evasive >= float(cfg.get("speed_drop_mps", 2.5))
                         and closing >= float(cfg.get("closing_mps", 2.0))
                         and (
@@ -807,6 +821,7 @@ class RuleEngine:
                     )
                     evidence["deceleration_mps2"] = round(evasive, 2)
                     evidence["vulnerable"] = bool(vulnerable)
+                    evidence["in_path"] = bool(in_path)
                 else:  # accident
                     # Contact is a geometric fact, not a speed threshold: once
                     # two bodies overlap, they overlap. Requiring closing speed
