@@ -189,5 +189,103 @@ class RuleSpecificityTests(unittest.TestCase):
         self.assertAlmostEqual(t.metres_per_pixel, 4.5 / 225, places=4)
 
 
+class RoadExclusionTests(unittest.TestCase):
+    """A raised refuge island is not carriageway.
+
+    The jaywalking definition is "a pedestrian on the carriageway outside a
+    crossing". A traffic island sits in the middle of the carriageway, so any
+    polygon drawn around the road necessarily covers it, and without an
+    exclusion someone waiting on a refuge is scored as a jaywalker.
+    """
+
+    def _scene(self, **kwargs):
+        from src.scene.config import SceneConfig, SceneContext
+        config = SceneConfig(
+            scene_id="test",
+            width=1920,
+            height=1080,
+            normalized=False,
+            auto_road_fallback=False,
+            **kwargs,
+        )
+        return SceneContext(config, 1920, 1080)
+
+    def test_island_inside_road_polygon_is_still_not_road(self) -> None:
+        # The island is strictly inside the road polygon, so the exclusion is
+        # the only thing that can make this point non-road.
+        scene = self._scene(
+            road_polygons=[[(0, 500), (1920, 500), (1920, 1080), (0, 1080)]],
+            road_exclusions=[[(800, 800), (1000, 800), (1000, 950), (800, 950)]],
+        )
+        self.assertFalse(scene.is_road_point((900.0, 870.0)), "island counted as carriageway")
+        self.assertTrue(scene.is_road_exclusion((900.0, 870.0)))
+        # Either side of the island is still ordinary road.
+        self.assertTrue(scene.is_road_point((700.0, 870.0)))
+        self.assertTrue(scene.is_road_point((1100.0, 870.0)))
+
+    def test_exclusion_does_not_leak_outside_its_polygon(self) -> None:
+        scene = self._scene(
+            road_polygons=[[(0, 0), (1920, 0), (1920, 1080), (0, 1080)]],
+            road_exclusions=[[(800, 800), (1000, 800), (1000, 950), (800, 950)]],
+        )
+        self.assertTrue(scene.is_road_point((799.0, 870.0)))
+        self.assertTrue(scene.is_road_point((1001.0, 870.0)))
+        self.assertTrue(scene.is_road_point((900.0, 799.0)))
+
+    def test_exclusions_alone_do_not_enable_the_scene(self) -> None:
+        """A scene with only exclusions has no carriageway to speak of."""
+        scene = self._scene(road_exclusions=[[(0, 0), (10, 0), (10, 10), (0, 10)]])
+        self.assertFalse(scene.config.has_road)
+        self.assertFalse(scene.is_road_point((5.0, 5.0)))
+
+    def test_no_road_geometry_means_no_exclusions_needed(self) -> None:
+        """Backward compatibility: scenes without the field load unchanged."""
+        scene = self._scene(road_polygons=[[(0, 0), (1920, 0), (1920, 1080), (0, 1080)]])
+        self.assertEqual(scene.config.road_exclusions, [])
+        self.assertTrue(scene.is_road_point((960.0, 540.0)))
+
+    def test_shipped_scene_excludes_both_refuge_islands(self) -> None:
+        """The two measured islands must not count as carriageway.
+
+        Coordinates come from scripts/measure_islands.py against C3902 frame
+        3150, where both islands measured 59% and 100% inside the road fill.
+        """
+        from src.scene.config import SceneContext, load_scene_config
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[1]
+        scene = SceneContext(
+            load_scene_config(str(root / "configs/scenes/tashkent_intersection.json"), 1920, 1080),
+            1920, 1080,
+        )
+        self.assertEqual(len(scene.config.road_exclusions), 2)
+        for name, (nx, ny) in {
+            "refuge_island_s": (0.31, 0.69),
+            "refuge_island_se": (0.40, 0.82),
+        }.items():
+            point = (nx * 1920, ny * 1080)
+            self.assertTrue(scene.is_road_exclusion(point), f"{name} centre is not excluded")
+            self.assertFalse(scene.is_road_point(point), f"{name} centre counts as carriageway")
+        # Ordinary carriageway well away from the islands is unaffected.
+        self.assertTrue(scene.is_road_point((0.80 * 1920, 0.55 * 1080)))
+
+    def test_shipped_crosswalk_sw_covers_the_left_of_the_paint(self) -> None:
+        """The displaced polygon missed the western end of the crossing.
+
+        A pedestrian standing on the real stripes there registered as
+        off-crossing, which is what let them reach the jaywalking rule.
+        """
+        from src.scene.config import SceneContext, load_scene_config
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[1]
+        scene = SceneContext(
+            load_scene_config(str(root / "configs/scenes/tashkent_intersection.json"), 1920, 1080),
+            1920, 1080,
+        )
+        # On the painted stripes, west of where the old polygon started (x=0.18).
+        self.assertIsNotNone(scene.crossing_for_point((0.12 * 1920, 0.72 * 1080)))
+        # And the eastern end is still covered.
+        self.assertIsNotNone(scene.crossing_for_point((0.35 * 1920, 0.85 * 1080)))
+
+
 if __name__ == "__main__":
     unittest.main()
