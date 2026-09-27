@@ -4,6 +4,12 @@ Detects 14 classes of traffic event as time segments from a fixed CCTV view of a
 Tashkent intersection, and produces a causal per-frame estimate of the risk that
 a collision is about to begin.
 
+## Team — 798C27C9
+
+- **Umidjon Axmedov — Team Lead & AI Engineer:** computer-vision pipeline, model development and fine-tuning, AI experiments, and technical direction.
+- **Asilbek Asqarov — Software Developer:** main application implementation and integration of its components.
+- **Asadbek Asrarkhanov — DevOps & Technical Support:** deployment, technical support, and integration across the software and AI components.
+
 ```text
 video ─► detector ─► tracker ─► trajectories ─┬─► geometry rules ─► segments   (Part A)
                                               └─► risk features ─► risk curve  (Part B)
@@ -230,6 +236,22 @@ on C3897, red recall 95 % and 100 %. Finding that it scored 7.7 % on one clip
 and 91.8 % on the other is what exposed an off-centre signal box — the same
 camera cannot have its signal in two places.
 
+## Verified, not assumed
+
+Checked in a clean virtual environment holding only what `requirements.txt`
+installs (numpy, opencv-python-headless, onnxruntime-gpu) — no torch, no
+ultralytics, nothing from this development machine:
+
+- `python run_submission.py` produces **identical events** to the development
+  environment, and `evaluate.py --validate-only` reports `VALID` with 0 errors.
+- The CUDA provider **fails to initialise on a host without the GPU libraries
+  and the run falls back to CPU and completes normally.** This is the fallback
+  in `OnnxDetector` doing its job, and it is why that fallback exists.
+- Two runs on the same machine give **byte-identical** predictions, as the
+  determinism rule requires. Across *different* ONNX Runtime builds (GPU versus
+  CPU wheels) a few detections near the confidence threshold do flip — the rule
+  specifies the same machine, so this is noted rather than engineered away.
+
 Runtime on a CPU-only machine with no GPU: 442 s and 480 s for the two
 five-minute clips, against a 953 s budget each.
 
@@ -252,7 +274,20 @@ These are real and were measured, not guessed.
   the EDA are a lower bound.
 - **The tracker is the simple one.** The vendored ByteTrack needs `lap`,
   `cython_bbox` and `scipy`, none of which ship manylinux wheels, so it is not
-  the default. On a busy intersection that costs identity stability.
+  the default. The built-in tracker uses IoU association only, with no motion
+  model, so identity is lost across fast occlusions and it has no way to keep a
+  track alive when a detection drops below the low threshold. Association
+  thresholds were measured rather than guessed — see "Tracking" below.
+- **Tracking: measured, and it was badly wrong until it was measured.** The
+  debug overlay was drawing 57.6 boxes per frame for 16.8 real objects, with
+  medians of 2 frames per track identity. Two causes, both fixed: association
+  demanded IoU ≥ 0.7 when only 81% of track-to-detection pairs reach it, so
+  every miss minted a fresh id; and `TrackManager.update` returned every
+  retained track rather than those seen on the current frame, so the renderer
+  drew identities up to two seconds dead. Median track lifetime is now 40
+  frames, a followed vehicle holds one id across 46 consecutive samples with
+  zero switches, and no two drawn boxes overlap. `debug.render_mode` renders
+  detections, tracks or both so the three stages can be told apart.
 - **`near_miss` and `accident` rest on braking and contact heuristics** that have
   not been validated against real collisions, because the sample clips contain
   no confirmed collision.

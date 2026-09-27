@@ -149,9 +149,20 @@ class TrackState:
 
     @property
     def speed_mps(self) -> float | None:
-        """Ground speed in m/s, or ``None`` when the scale is unknown."""
+        """Ground speed in m/s, or ``None`` when it is not yet knowable.
+
+        Two cases return ``None``. The first is an unknown scale. The second is
+        a track that has only ever been seen once: its velocity is still the
+        constructor default of ``(0, 0)``, which reports a speed of exactly
+        0.0 m/s and is indistinguishable from a genuinely stationary vehicle.
+        Measured at the head of a development clip, that made 14 of 14 tracks
+        look stopped on the second sampled frame, and every speed-dependent
+        rule -- stopped_vehicle, congestion, braking, near_miss -- evaluated
+        that phantom standstill as fact. A rule must be able to tell "not
+        moving" apart from "not measured yet".
+        """
         scale = self.metres_per_pixel
-        if scale is None:
+        if scale is None or len(self.history) < 2:
             return None
         return self.speed * scale
 

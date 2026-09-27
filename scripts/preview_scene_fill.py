@@ -53,12 +53,22 @@ def main() -> int:
         cv2.fillPoly(overlay, [poly_of(road)], (0, 150, 255))
     for crossing in cfg.crossings:
         cv2.fillPoly(overlay, [poly_of(crossing)], (0, 0, 255))
+    # Exclusions are holes in the road fill, so they are drawn last and in a
+    # third colour: green must read as "not road" while the orange road fill
+    # still shows through around it.
+    for exclusion in cfg.road_exclusions:
+        cv2.fillPoly(overlay, [poly_of(exclusion)], (0, 255, 0))
     out = cv2.addWeighted(overlay, args.alpha, frame, 1 - args.alpha, 0)
 
     for road in cfg.road_polygons:
         cv2.polylines(out, [poly_of(road)], True, (0, 255, 255), 3)
     for crossing in cfg.crossings:
         cv2.polylines(out, [poly_of(crossing)], True, (0, 0, 255), 4)
+    for index, exclusion in enumerate(cfg.road_exclusions):
+        pts = poly_of(exclusion)
+        cv2.polylines(out, [pts], True, (0, 255, 0), 4)
+        cv2.putText(out, f"NOT ROAD {index}", (int(pts[:, 0].min()) + 6, int(pts[:, 1].min()) + 24),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
     for line in cfg.stop_lines:
         cv2.line(out, poly_of(line.segment)[0], poly_of(line.segment)[1], (0, 0, 255), 6)
     for line in cfg.solid_lines:

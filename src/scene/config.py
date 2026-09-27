@@ -49,6 +49,12 @@ class SceneConfig:
     crossings: list[list[list[float]]] = field(default_factory=list)
     road_polygon: list[list[float]] = field(default_factory=list)
     road_polygons: list[list[list[float]]] = field(default_factory=list)
+    # Regions that are *not* carriageway even though a road polygon covers
+    # them: raised refuge islands, planters, kerbed medians. A pedestrian
+    # standing on one is not "on the road" for the jaywalking definition
+    # ("a pedestrian on the carriageway outside a crossing"), so these are
+    # holes punched through the road polygons rather than separate geometry.
+    road_exclusions: list[list[list[float]]] = field(default_factory=list)
     traffic_lights: list[TrafficLightROI] = field(default_factory=list)
     homography: list[list[float]] | None = None
     normalized: bool = False
@@ -139,6 +145,11 @@ def load_scene_config(
         for item in data.get("road_polygons", [])
     ]
     road_polygons = [item for item in road_polygons if len(item) >= 3]
+    road_exclusions = [
+        rescale_points(item.get("polygon", item), width, height, normalized)
+        for item in data.get("road_exclusions", [])
+    ]
+    road_exclusions = [item for item in road_exclusions if len(item) >= 3]
     lights: list[TrafficLightROI] = []
     for index, item in enumerate(data.get("traffic_lights", [])):
         roi_raw = item.get("roi", item.get("bbox"))
@@ -163,6 +174,7 @@ def load_scene_config(
         crossings=crossings,
         road_polygon=road,
         road_polygons=road_polygons,
+        road_exclusions=road_exclusions,
         traffic_lights=lights,
         homography=data.get("homography"),
         normalized=normalized,
@@ -236,7 +248,22 @@ class SceneContext:
         projected = cv2.perspectiveTransform(np.asarray([[point]], dtype=np.float64), matrix).reshape(2)
         return float(projected[0]), float(projected[1])
 
+    def is_road_exclusion(self, point: Point) -> bool:
+        """True when the point is on a raised island or other non-carriageway.
+
+        Checked before the road polygons so that an exclusion always wins. A
+        refuge island sits in the middle of the carriageway, so a polygon drawn
+        around the road unavoidably covers it; without this the jaywalking
+        definition ("a pedestrian on the carriageway") would treat someone
+        standing on a traffic island as being in the road.
+        """
+        if not self.config:
+            return False
+        return any(point_in_polygon(point, polygon) for polygon in self.config.road_exclusions)
+
     def is_road_point(self, point: Point) -> bool:
+        if self.is_road_exclusion(point):
+            return False
         if not self.config or not self.config.has_road:
             if self.config is not None and not self.config.auto_road_fallback:
                 return False

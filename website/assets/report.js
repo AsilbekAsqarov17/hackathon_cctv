@@ -237,7 +237,7 @@
         : "a few percent") +
       " of sampled frames, and bicycles and motorcycles are effectively absent — that is the confidence " +
       "floor talking, not the scene.");
-    out.push(panel("What did <span style=\"color:var(--bad)\">not</span> work", li("bad-list", failed)));
+    out.push(panel("What did <p style=\"color:var(--bad)\">not</p> work", li("bad-list", failed)));
 
     /* ---------------- next ---------------- */
     out.push(panel("What we would do next, in order", li("ok-list",

@@ -141,54 +141,41 @@
     }
   }
 
-  /* -------------------------------------------------------------- team
-     Every field below is an explicit TODO(team). Nothing is invented. */
+  /* -------------------------------------------------------------- team */
   var TEAM = [
     {
-      slot: "1",
-      name: "TODO(team) — member 1 name",
-      role: "TODO(team) — role, e.g. perception / detector",
-      focus: "TODO(team) — which parts did this person actually own",
-      links: [
-        ["GitHub", "TODO(team) — github.com/…"],
-        ["LinkedIn", "TODO(team) — linkedin.com/in/…"],
-        ["Portfolio", "TODO(team) — optional site"]
-      ]
+      slot: "U",
+      name: "Umidjon Axmedov",
+      role: "Team Lead & AI Engineer",
+      focus: "Responsible for the computer-vision pipeline, model development and fine-tuning, AI experiments, and technical direction.",
+      links: [["GitHub", "https://github.com/axumfa"], ["LinkedIn", "https://www.linkedin.com/in/umid-akhmedov-931418359/"]]
     },
     {
-      slot: "2",
-      name: "TODO(team) — member 2 name",
-      role: "TODO(team) — role, e.g. rules / scene calibration",
-      focus: "TODO(team) — which parts did this person actually own",
-      links: [
-        ["GitHub", "TODO(team) — github.com/…"],
-        ["LinkedIn", "TODO(team) — linkedin.com/in/…"],
-        ["Portfolio", "TODO(team) — optional site"]
-      ]
+      slot: "A",
+      name: "Asilbek Asqarov",
+      role: "Software Developer",
+      focus: "Responsible for the main application implementation and integration of its components.",
+      links: [["GitHub", "https://github.com/AsilbekAsqarov17"], ["LinkedIn", "https://www.linkedin.com/in/asilbek-asqarov-63704035a/"]]
     },
     {
-      slot: "3",
-      name: "TODO(team) — member 3 name",
-      role: "TODO(team) — role, e.g. Part B risk / tooling &amp; report",
-      focus: "TODO(team) — which parts did this person actually own",
-      links: [
-        ["GitHub", "TODO(team) — github.com/…"],
-        ["LinkedIn", "TODO(team) — linkedin.com/in/…"],
-        ["Portfolio", "TODO(team) — optional site"]
-      ]
+      slot: "A",
+      name: "Asadbek Asrarkhanov",
+      role: "DevOps & Technical Support",
+      focus: "Responsible for deployment, technical support, and integration across the software and AI components.",
+      links: [["GitHub", "https://github.com/locksley-w4"], ["LinkedIn", "https://www.linkedin.com/in/asadbek-asrarkhanov-b7b890326/"]]
     }
   ];
 
   var WORK = [
-    ["Detector: YOLO11n → ONNX, CPU path, stride choice", "TODO(team)", "done — 10.7 MB ONNX, no PyTorch at inference"],
-    ["ByteTrack-style tracker (dependency-free fallback)", "TODO(team)", "done — upstream ByteTrack is not installed, so the built-in two-stage IoU tracker runs"],
-    ["RuleEngine: 12 of 14 classes", "TODO(team)", "done — thresholds in <code>configs/default.json</code>"],
-    ["Scene calibration (lanes / stop lines / crosswalks / light ROIs)", "TODO(team)", "partial — only <code>data_video1</code> is calibrated; the two sample clips fall back to the unconfigured scene"],
-    ["Part B causal risk scorer", "TODO(team)", "partial — works and is causal, but the score saturates (see <a href=\"#results\">results</a> and the <a href=\"#report\">report</a>)"],
-    ["Detector fine-tune on pseudo-labels", "TODO(team)", "in progress — pseudo-labels exist for <code>data_video1</code> only and are unreviewed"],
-    ["Human event labels for the sample clips", "TODO(team)", "not started — without a dev set every F1 we quote would be fiction"],
-    ["This website + demo backend", "TODO(team)", "done"],
-    ["Write-up and final predictions", "TODO(team)", "in progress"]
+    ["Detector: YOLO11n → ONNX, CPU path, stride choice", "Umidjon Axmedov", "done — 10.7 MB ONNX, no PyTorch at inference"],
+    ["ByteTrack-style tracker (dependency-free fallback)", "Umidjon Axmedov", "done — upstream ByteTrack is not installed, so the built-in two-stage IoU tracker runs"],
+    ["RuleEngine: 12 of 14 classes", "Umidjon Axmedov", "done — thresholds in <code>configs/default.json</code>"],
+    ["Scene calibration (lanes / stop lines / crosswalks / light ROIs)", "Umidjon Axmedov", "partial — only <code>data_video1</code> is calibrated; hidden test names resolve to the shipped default scene"],
+    ["Part B causal risk scorer", "Umidjon Axmedov", "partial — causal, but not a calibrated positive-risk benchmark"],
+    ["Detector fine-tune on pseudo-labels", "Umidjon Axmedov", "not used — pseudo-labels remain unreviewed and the shipped model is stock COCO YOLO11n"],
+    ["Human event labels for the sample clips", "Umidjon Axmedov, Asilbek Asqarov", "done — development annotations recorded in <code>data/annotations/</code>"],
+    ["This website + demo backend", "Asadbek Asrarkhanov, Asilbek Asqarov", "done"],
+    ["Write-up and final predictions", "All members", "done — limitations and measured results are published on the site"]
   ];
 
   function initTeam() {
@@ -201,7 +188,7 @@
           '<div class="role">' + m.role + "</div>" +
           "<p>" + m.focus + "</p>" +
           '<div class="links">' + m.links.map(function (l) {
-            return '<span class="todo">' + l[0] + ": " + l[1] + "</span>";
+            return '<a class="todo" href="' + esc(l[1]) + '" target="_blank" rel="noopener">' + l[0] + "</a>";
           }).join("") + "</div>" +
           "</article>";
       }).join("");
@@ -223,7 +210,7 @@
 
   /* ------------------------------------------------------------- links */
   function buildLinks() {
-    var repoGuess = "TODO(team) — set the repository URL in website/index.html";
+    var repoGuess = "https://github.com/AsilbekAsqarov17/hackathon_cctv";
     var links = [
       { k: "source", t: "Source repository", d: "solution.py + src/ + configs/ + tools/", u: null, todo: repoGuess },
       { k: "weights", t: "Detector weights", d: "weights/yolo11n.onnx — 10.7 MB, COCO-pretrained YOLO11n exported to ONNX", u: "../weights/yolo11n.onnx" },
@@ -232,7 +219,7 @@
           "<code>predictions*.json</code>, so this file can never be committed and a link to it here " +
           "would be a dead link on every deployment. Produce it with " +
           "<code>python run_submission.py --videos data/samples_small --out predictions_samples.json " +
-          "--team TODO(team)</code> and it lands at the repository root." },
+          "--team 798C27C9</code> and it lands at the repository root." },
       { k: "solution", t: "solution.py", d: "The only file a team has to implement — CLASSES, detect_events, RiskEstimator", u: "../solution.py" },
       { k: "arch-a", t: "docs/PART_A_ARCHITECTURE.md", d: "Runtime chain, canonical state, rules contract, scene configuration", u: "../docs/PART_A_ARCHITECTURE.md" },
       { k: "arch-b", t: "docs/PART_B_ARCHITECTURE.md", d: "Causality contract and the Part A → Part B feature cache", u: "../docs/PART_B_ARCHITECTURE.md" },

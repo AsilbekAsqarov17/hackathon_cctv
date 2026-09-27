@@ -24,7 +24,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "backend": "official",  # official or simple_bytetrack
         "high_threshold": 0.5,
         "low_threshold": 0.15,
-        "match_threshold": 0.7,
+        "match_threshold": 0.3,
         "max_age": 30,
         "min_hits": 2,
     },
@@ -160,6 +160,7 @@ def apply_environment_overrides(config: dict[str, Any]) -> dict[str, Any]:
         "TRAFFIC_DETECTOR_BACKEND": ("detector", "backend"),
         "TRAFFIC_TRACKER_BACKEND": ("tracker", "backend"),
         "TRAFFIC_SCENE_CONFIG": ("scene", "path"),
+        "TRAFFIC_DEBUG_RENDER_MODE": ("debug", "render_mode"),
         "TRAFFIC_ACTIVE_CLASSES": None,
     }
     for env_name, path in mapping.items():
