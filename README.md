@@ -201,6 +201,22 @@ on C3897, red recall 95 % and 100 %. Finding that it scored 7.7 % on one clip
 and 91.8 % on the other is what exposed an off-centre signal box — the same
 camera cannot have its signal in two places.
 
+## Verified, not assumed
+
+Checked in a clean virtual environment holding only what `requirements.txt`
+installs (numpy, opencv-python-headless, onnxruntime-gpu) — no torch, no
+ultralytics, nothing from this development machine:
+
+- `python run_submission.py` produces **identical events** to the development
+  environment, and `evaluate.py --validate-only` reports `VALID` with 0 errors.
+- The CUDA provider **fails to initialise on a host without the GPU libraries
+  and the run falls back to CPU and completes normally.** This is the fallback
+  in `OnnxDetector` doing its job, and it is why that fallback exists.
+- Two runs on the same machine give **byte-identical** predictions, as the
+  determinism rule requires. Across *different* ONNX Runtime builds (GPU versus
+  CPU wheels) a few detections near the confidence threshold do flip — the rule
+  specifies the same machine, so this is noted rather than engineered away.
+
 Runtime on a CPU-only machine with no GPU: 442 s and 480 s for the two
 five-minute clips, against a 953 s budget each.
 
