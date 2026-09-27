@@ -32,6 +32,35 @@ To check the install without a video:
 python scripts/check_runtime.py
 ```
 
+### Docker (CPU or GPU server)
+
+The `Dockerfile` packages the application, dependencies, configuration, and the
+committed ONNX weights. The image uses CPU execution when no GPU is available
+and automatically requests the CUDA execution provider when NVIDIA support is
+available.
+
+Prepare an input/output directory on the host, then build and run:
+
+```bash
+cp video_path data/in/
+docker build -t wiut-submission .
+docker run --rm -v "$PWD/data/in:/data/in:ro" -v "$PWD/data/out:/data/out" wiut-submission
+```
+
+The command exits after writing `data/out/predictions.json`; this is the result
+to copy back from the server. On a host with the NVIDIA Container Toolkit and a
+compatible driver, enable GPU use with:
+
+```bash
+docker run --rm --gpus all -v "$PWD/data/in:/data/in:ro" -v "$PWD/data/out:/data/out" wiut-submission
+```
+
+The mounted output directory is required: the file created inside a container is
+otherwise deleted when the container exits. On Windows, use `%CD%\\data\\in` and
+`%CD%\\data\\out` in the volume arguments, or use Docker Desktop's file-sharing UI.
+Docker cannot make a missing host video appear inside the container, so the
+video must be copied into `data/in` before the run.
+
 ## What it actually does
 
 | Stage | Component | Notes |

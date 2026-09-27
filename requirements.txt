@@ -1,7 +1,6 @@
 # Core runtime dependencies (submission offline runner & inference)
 numpy>=1.24
 opencv-python-headless>=4.8
-onnxruntime-gpu>=1.16
 
 # Extended / Training & optional official ByteTrack dependencies
 # (Previously in requirements-part-a.txt)
@@ -9,8 +8,4 @@ ultralytics>=8.4,<9
 scipy>=1.10
 lap>=0.5
 cython_bbox>=0.1
-
-# NVIDIA CUDA runtime wheels (for GPU acceleration on CUDA 12)
-nvidia-cudnn-cu12
-nvidia-cublas-cu12
-nvidia-cuda-runtime-cu12
+onnxruntime-gpu[cuda,cudnn]>=1.16
