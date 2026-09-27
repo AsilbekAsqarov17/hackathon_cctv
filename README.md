@@ -4,6 +4,12 @@ Detects 14 classes of traffic event as time segments from a fixed CCTV view of a
 Tashkent intersection, and produces a causal per-frame estimate of the risk that
 a collision is about to begin.
 
+## Team — 798C27C9
+
+- **Umidjon Axmedov — Team Lead & AI Engineer:** computer-vision pipeline, model development and fine-tuning, AI experiments, and technical direction.
+- **Asilbek Asqarov — Software Developer:** main application implementation and integration of its components.
+- **Asadbek Asrarkhanov — DevOps & Technical Support:** deployment, technical support, and integration across the software and AI components.
+
 ```text
 video ─► detector ─► tracker ─► trajectories ─┬─► geometry rules ─► segments   (Part A)
                                               └─► risk features ─► risk curve  (Part B)
