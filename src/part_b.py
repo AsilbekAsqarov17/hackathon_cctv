@@ -125,9 +125,12 @@ def _score_features(
         raw = max(raw, 0.40 * pedestrian)
     # The task names the signals worth trusting: time to collision, sudden
     # braking, wrong-way trajectories, and pedestrians entering the roadway. It
-    # does not name the accident *rule*, and treating that flag as near-proof of
-    # an imminent crash is circular -- it is a trajectory heuristic that, while
-    # still too loose, fires on ordinary dense traffic.
+    # does not name the accident *rule*, and treating that flag as proof of an
+    # imminent crash is circular. It is also a lagging signal by construction --
+    # the Part A accident rule now requires the approach to collapse after
+    # contact, which is what an impact does, so it cannot fire before the crash
+    # and contributes detection rather than anticipation. The anticipation
+    # signal is the time-to-collision work above, which is independent of it.
     if features.get("accident_candidate"):
         raw = max(raw, float(risk_config.get("accident_boost", 0.45)))
     if features.get("near_miss_candidate"):
