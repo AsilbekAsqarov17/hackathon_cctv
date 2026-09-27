@@ -1,0 +1,35 @@
+{
+  "backend": "hybrid",
+  "primary": {
+    "model": "runs/detect/traffic_part_a_gpu/weights/best.pt",
+    "confidence": 0.20,
+    "iou": 0.5,
+    "imgsz": 640,
+    "device": "0",
+    "allow_download": false
+  },
+  "traffic_light": {
+    "model": "weights/yolo11n.pt",
+    "confidence": 0.10,
+    "iou": 0.5,
+    "imgsz": 640,
+    "device": "0",
+    "allow_download": false
+  },
+  "tracker": {
+    "backend": "official",
+    "high_threshold": 0.5,
+    "low_threshold": 0.15,
+    "match_threshold": 0.7,
+    "max_age": 30,
+    "min_hits": 2,
+    "frame_rate": 29.97
+  },
+  "track_manager": {
+    "max_age_seconds": 2.0,
+    "history_seconds": 8.0
+  },
+  "scene": {
+    "path": "configs/scenes/data_video1_base.json"
+  }
+}

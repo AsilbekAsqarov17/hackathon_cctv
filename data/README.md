@@ -32,4 +32,5 @@ After review, start a small development fine-tune with:
 
 ```bash
 python scripts/train_detector.py --model weights/yolo11n.pt --data data/traffic_coco/dataset.yaml --epochs 20 --imgsz 640 --batch 4 --device 0 --workers 0
+python scripts/export_onnx.py --model runs/detect/traffic_part_a/weights/best.pt --output weights/traffic_part_a.onnx
 ```

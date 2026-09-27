@@ -1,0 +1,23 @@
+{
+  "_comment": [
+    "data_video1 has NO verified camera geometry. camera.md is absent and the",
+    "draft in data_video1.json was never confirmed against tracked trajectories.",
+    "This file is the honest uncalibrated state: every geometry collection is",
+    "empty and auto_road_fallback is false, so SceneContext.has_geometry and",
+    "has_road are both False and all geometry-dependent rules (stopped_vehicle,",
+    "wrong_way, solid_line_crossing, red_light, stop_line, jaywalking, turns)",
+    "stay inactive. Emitting no events is correct until a human calibrates lanes,",
+    "stop lines, crossings, solid lines and signal ROIs from measured tracks.",
+    "See data/scene_geometry_status.md for what is verified and what is missing."
+  ],
+  "scene_id": "data_video1_uncalibrated",
+  "normalized": true,
+  "auto_road_fallback": false,
+  "road_polygon": [],
+  "road_polygons": [],
+  "lanes": [],
+  "stop_lines": [],
+  "solid_lines": [],
+  "crosswalks": [],
+  "traffic_lights": []
+}

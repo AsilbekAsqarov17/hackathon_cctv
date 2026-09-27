@@ -8,23 +8,41 @@ import cv2
 import numpy as np
 
 
-def _configure_cuda_dlls() -> None:
-    """Expose pip-installed NVIDIA DLL directories to ONNX Runtime on Windows."""
+def _configure_cuda_dlls(ort: Any) -> None:
+    """Locate the pip-installed NVIDIA CUDA/cuDNN DLLs before creating a session.
+
+    Two things are needed on Windows. First, the `nvidia\\*\\bin` directories from
+    the `nvidia-*-cu12` wheels must be on the DLL search path; without this,
+    cuBLAS emits "Could not locate nvrtc64_120_0.dll" while probing for an
+    optional JIT path. Second, ONNX Runtime >= 1.21 exposes `preload_dlls`,
+    which resolves the CUDA/cuDNN/MSVC runtime dependencies.
+
+    Note `site.getsitepackages()` returns every candidate root, and the first
+    entry is the interpreter prefix rather than `Lib\\site-packages`, so all
+    entries must be searched.
+    """
     import glob
     import os
     import site
 
-    candidates: list[str] = []
-    for root in {site.getsitepackages()[0] if site.getsitepackages() else "", site.getusersitepackages() if hasattr(site, "getusersitepackages") else ""}:
-        if root:
-            candidates.extend(glob.glob(os.path.join(root, "nvidia", "*", "bin")))
-    for directory in candidates:
-        if hasattr(os, "add_dll_directory"):
-            try:
-                os.add_dll_directory(directory)
-            except OSError:
-                pass
-        os.environ["PATH"] = directory + os.pathsep + os.environ.get("PATH", "")
+    roots = set(site.getsitepackages())
+    usersite = getattr(site, "getusersitepackages", None)
+    if usersite is not None:
+        roots.add(usersite())
+    for root in roots:
+        for directory in sorted(glob.glob(os.path.join(root, "nvidia", "*", "bin"))):
+            if hasattr(os, "add_dll_directory"):
+                try:
+                    os.add_dll_directory(directory)
+                except OSError:
+                    pass
+            if directory not in os.environ.get("PATH", ""):
+                os.environ["PATH"] = directory + os.pathsep + os.environ["PATH"]
+
+    preload = getattr(ort, "preload_dlls", None)
+    if preload is not None:
+        preload()
+
 
 from ..contracts import Detection
 from .detector import COCO_NAMES, RELEVANT_NAMES
@@ -33,7 +51,7 @@ from .detector import COCO_NAMES, RELEVANT_NAMES
 class OnnxDetector:
     """YOLO ONNX detector using CUDAExecutionProvider when available."""
 
-    _sessions: dict[tuple[str, int], Any] = {}
+    _sessions: dict[tuple[str, int, str], Any] = {}
 
     def __init__(self, config: dict[str, Any]):
         self.config = config
@@ -54,21 +72,30 @@ class OnnxDetector:
         return dict(COCO_NAMES)
 
     def _get_session(self) -> Any:
-        _configure_cuda_dlls()
         import onnxruntime as ort
 
         providers = ["CPUExecutionProvider"]
         if self.device not in {"cpu", "-1"}:
             available = ort.get_available_providers()
             if "CUDAExecutionProvider" in available:
-                providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-        key = (str(self.model_path.resolve()), self.imgsz)
+                device_id = int(self.device) if self.device.isdigit() else 0
+                providers = [
+                    ("CUDAExecutionProvider", {"device_id": device_id}),
+                    "CPUExecutionProvider",
+                ]
+        # Must happen before InferenceSession so the loader finds cuDNN/cuBLAS.
+        _configure_cuda_dlls(ort)
+        key = (str(self.model_path.resolve()), self.imgsz, self.device)
         if key not in self._sessions:
             self._sessions[key] = ort.InferenceSession(
                 str(self.model_path), providers=providers
             )
         session = self._sessions[key]
         self.active_providers = session.get_providers()
+        if self.device not in {"cpu", "-1"} and "CUDAExecutionProvider" not in self.active_providers:
+            raise RuntimeError(
+                f"CUDA device requested but ONNX Runtime providers are {self.active_providers}"
+            )
         meta = session.get_modelmeta().custom_metadata_map or {}
         raw_names = meta.get("names")
         if raw_names and not self.config.get("class_names"):

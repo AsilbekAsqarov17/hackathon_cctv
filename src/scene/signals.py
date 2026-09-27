@@ -9,10 +9,21 @@ import numpy as np
 from ..contracts import TrafficLightState
 
 
-def classify_light_color(roi_bgr: np.ndarray, min_pixels: int = 8) -> tuple[str, float]:
-    """Classify a configured traffic-light ROI as red/yellow/green/unknown."""
+def classify_light_color(
+    roi_bgr: np.ndarray, min_pixels: int | None = None, min_area_fraction: float = 0.004
+) -> tuple[str, float]:
+    """Classify a configured traffic-light ROI as red/yellow/green/unknown.
+
+    ``min_pixels`` defaults to a fraction of the ROI area rather than a fixed
+    count. The same camera delivers the same intersection at 3840x2160 and at
+    1920x1080, so a lit lamp covers four times fewer pixels in the smaller
+    frame; a fixed threshold would read the half-resolution video as permanently
+    unknown and silently disable every signal-dependent rule.
+    """
     if roi_bgr.size == 0:
         return "unknown", 0.0
+    area = int(roi_bgr.shape[0] * roi_bgr.shape[1])
+    threshold = int(min_pixels) if min_pixels is not None else max(3, round(area * min_area_fraction))
     hsv = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2HSV)
     # Two red hue ranges handle the wrap around 0 degrees.
     masks = {
@@ -26,9 +37,9 @@ def classify_light_color(roi_bgr: np.ndarray, min_pixels: int = 8) -> tuple[str,
         value = int(cv2.countNonZero(mask))
         if value > count:
             color, count = name, value
-    if count < min_pixels:
+    if count < threshold:
         return "unknown", 0.0
-    confidence = min(1.0, count / max(1, roi_bgr.shape[0] * roi_bgr.shape[1] * 0.08))
+    confidence = min(1.0, count / max(1, area * 0.08))
     return color, float(confidence)
 
 

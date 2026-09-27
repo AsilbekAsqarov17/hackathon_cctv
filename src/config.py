@@ -33,8 +33,31 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "default_path": "configs/scenes/default.json",
     },
     "rules": {
-        "wrong_way": {"enabled": True, "min_speed": 4.0, "direction_dot": -0.45, "debounce_frames": 3},
-        "stopped_vehicle": {"enabled": True, "speed": 3.0, "duration": 10.0},
+        # Trajectory-window thresholds. net_max_px / path_max_px were measured
+        # from the data_video1 track history: stationary windows sit at <=20 px
+        # net while moving windows start at ~31 px, so 25 px separates them.
+        "wrong_way": {
+            "enabled": True,
+            "window": 2.5,
+            "direction_dot": -0.45,
+            "min_travel_px": 45.0,
+            "min_speed": 6.0,
+            "confirm_sec": 1.5,
+            # Only calibrated lanes may raise wrong_way. Lanes absent from the
+            # scene file (east leg, lower intersection) have no direction and so
+            # can never match, and this allowlist enforces that explicitly.
+            "lane_allowlist": [0, 1, 2, 3],
+        },
+        "stopped_vehicle": {
+            "enabled": True,
+            "window": 2.5,
+            "net_max_px": 25.0,
+            "path_max_px": 250.0,
+            "duration": 10.0,
+            "tolerance_gap": 1.5,
+            "queue_radius_px": 220.0,
+            "speed": 3.0,
+        },
         "congestion": {"enabled": True, "min_vehicles": 4, "speed": 8.0, "duration": 5.0},
         "stop_line": {"enabled": True, "hold": 0.6},
         "red_light": {"enabled": True, "hold": 0.8},

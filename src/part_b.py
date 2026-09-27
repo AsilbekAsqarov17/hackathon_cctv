@@ -81,21 +81,47 @@ def _score_features(
     if not features:
         return previous * float(risk_config.get("decay", 0.85))
     horizon = float(risk_config.get("horizon_sec", RISK_HORIZON_SEC))
-    ttc = features.get("min_ttc")
+    # The ramp is built on the *conflict* TTC, not the raw minimum over all
+    # pairs. Thirty vehicles in a queue always contain some pair with a short
+    # time-to-collision, so a raw minimum saturates the score on ordinary
+    # traffic and produces a constant alarm; measured over data_video2 that put
+    # 98 percent of frames above the official 0.5 threshold. Only pairs that
+    # share a lane (or involve a pedestrian) and are genuinely closing count.
+    ttc = features.get("min_conflict_ttc")
+    if ttc is None and "conflict_pair_count" not in features:
+        # A caller that predates the conflict fields (an older cache, or a unit
+        # test feeding a hand-built dict) has no conflict count, so fall back to
+        # the raw minimum rather than silently scoring nothing. When the field
+        # IS present and zero, the answer is genuinely "no conflicting pair".
+        ttc = features.get("min_ttc")
+    if ttc is not None and features.get("conflict_evasive") is False:
+        # Close and closing is not yet risk. Measured on data_video1 at 4K, 9-19
+        # pairs pass the conflict test at any moment with a median TTC of
+        # 1.17 s - that is ordinary car-following, because the lead vehicle is
+        # going to brake. The ramp is therefore gated on a conflicting pair also
+        # showing evasive behaviour, reusing the criteria the validated
+        # `near_miss` rule uses. Without this gate the score read above the
+        # official alarm threshold on 80% of frames of ordinary traffic.
+        ttc = None
     raw = 0.0
     if ttc is not None and 0.0 < float(ttc) <= horizon:
-        # A pair with a finite TTC receives a smooth pre-collision ramp. The
-        # floor is deliberately below the alarm threshold; smoothing and the
-        # other interaction terms determine when a 0.5 alarm is reached.
-        ttc_floor = float(risk_config.get("ttc_floor", 0.45))
-        progress = max(0.0, 1.0 - float(ttc) / max(horizon, 1e-6))
+        # A pair on a genuine collision course, closing evasively, receives a
+        # smooth pre-collision ramp. The ramp itself is deliberately shorter
+        # than the 5 s reporting horizon: the score is a confidence that a
+        # collision is imminent, not a countdown, and a pair still 4 s away is
+        # not yet risk. The floor sits below the alarm threshold; the other
+        # interaction terms decide when 0.5 is actually reached.
+        ttc_floor = float(risk_config.get("ttc_floor", 0.35))
+        ramp = float(risk_config.get("ttc_ramp_sec", 2.0))
+        progress = max(0.0, 1.0 - float(ttc) / max(ramp, 1e-6))
         ttc_risk = ttc_floor + (1.0 - ttc_floor) * progress
         raw = max(raw, ttc_risk)
-    distance = features.get("min_distance")
     closing = float(features.get("max_closing_speed", 0.0))
-    if distance is not None and (closing > 0.0 or ttc is not None):
-        near = max(0.0, 1.0 - float(distance) / float(risk_config.get("near_distance_px", 180.0)))
-        raw = max(raw, 0.32 * near * near)
+    if features.get("conflict_pair_count"):
+        distance = features.get("min_distance")
+        if distance is not None:
+            near = max(0.0, 1.0 - float(distance) / float(risk_config.get("near_distance_px", 180.0)))
+            raw = max(raw, 0.32 * near * near)
     if closing > 0.0:
         closing_term = min(1.0, closing / float(risk_config.get("closing_speed_scale", 180.0)))
         raw = max(raw, 0.35 * closing_term)
@@ -112,6 +138,11 @@ def _score_features(
         raw = max(raw, float(risk_config.get("near_miss_boost", 0.68)))
     if features.get("wrong_way_candidate"):
         raw = max(raw, float(risk_config.get("wrong_way_boost", 0.58)))
+    if features.get("red_light_candidate"):
+        # A red-light violation makes a collision more likely within the horizon,
+        # so it raises the score, but it is not itself a collision and must not
+        # reach the accident boost.
+        raw = max(raw, float(risk_config.get("red_light_boost", 0.45)))
     raw = min(1.0, max(0.0, raw))
     if raw <= 0.0:
         return min(1.0, max(0.0, previous * float(risk_config.get("decay", 0.85))))

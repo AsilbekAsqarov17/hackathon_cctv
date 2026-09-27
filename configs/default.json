@@ -1,14 +1,36 @@
 {
+  "_generated_by": "scripts/build_default_config.py",
+  "_source": "configs/data_video1_rules_dev.json",
+  "_banner": [
+    "GENERATED FILE - do not edit by hand.",
+    "",
+    "Produced by scripts/build_default_config.py from",
+    "configs/data_video1_rules_dev.json, which is the configuration every",
+    "threshold was measured against. The organizers' harness calls",
+    "solution.detect_events(video_path) with no config argument, so this file",
+    "is what actually runs in the submission.",
+    "",
+    "Regenerate with:  python scripts/build_default_config.py"
+  ],
   "detector": {
-    "backend": "auto",
-    "model": "yolo11n.pt",
-    "confidence": 0.25,
-    "iou": 0.5,
-    "imgsz": 640,
-    "device": "",
-    "stride": 3,
-    "fallback_motion": false,
-    "allow_download": false
+    "backend": "hybrid",
+    "primary": {
+      "model": "weights/traffic_part_a_gpu_best.pt",
+      "confidence": 0.2,
+      "iou": 0.5,
+      "imgsz": 640,
+      "device": "0",
+      "allow_download": false
+    },
+    "traffic_light": {
+      "model": "weights/yolo11n.pt",
+      "confidence": 0.1,
+      "iou": 0.5,
+      "imgsz": 640,
+      "device": "0",
+      "allow_download": false
+    },
+    "stride": 3
   },
   "tracker": {
     "backend": "official",
@@ -16,42 +38,338 @@
     "low_threshold": 0.15,
     "match_threshold": 0.7,
     "max_age": 30,
-    "min_hits": 2
+    "min_hits": 2,
+    "frame_rate": 29.97
+  },
+  "track_manager": {
+    "max_age_seconds": 2.0,
+    "history_seconds": 8.0
   },
   "scene": {
-    "path": "",
-    "default_path": "configs/scenes/default.json"
+    "path": "configs/scenes/data_video1.json"
   },
   "rules": {
-    "wrong_way": {"enabled": true, "min_speed": 4.0, "direction_dot": -0.45, "debounce_frames": 3},
-    "stopped_vehicle": {"enabled": true, "speed": 3.0, "duration": 10.0},
-    "congestion": {"enabled": true, "min_vehicles": 4, "speed": 8.0, "duration": 5.0},
-    "stop_line": {"enabled": true, "hold": 0.6},
-    "red_light": {"enabled": true, "hold": 0.8},
-    "solid_line_crossing": {"enabled": true, "hold": 0.5},
-    "illegal_turn": {"enabled": true, "hold": 0.8},
-    "illegal_u_turn": {"enabled": true, "hold": 0.8, "angle": 2.35},
-    "jaywalking": {"enabled": true, "duration": 1.0},
-    "failure_to_yield": {"enabled": true, "hold": 0.8},
-    "near_miss": {"enabled": true, "ttc": 2.5, "distance": 120.0, "hold": 0.5},
-    "accident": {"enabled": true, "distance": 55.0, "hold": 0.8},
-    "road_obstacle": {"enabled": true, "duration": 1.0},
-    "fire_smoke": {"enabled": true, "duration": 0.5}
+    "stopped_vehicle": {
+      "enabled": true,
+      "window": 2.5,
+      "net_max_px": 25.0,
+      "path_max_px": 250.0,
+      "duration": 10.0,
+      "tolerance_gap": 1.5,
+      "queue_radius_px": 220.0,
+      "speed": 3.0,
+      "_note": [
+        "Thresholds measured by scripts/calibrate_motion_thresholds.py over",
+        "63924 motion windows: a stationary vehicle has net <= 20px, a moving",
+        "one >= 31px, so net_max 25px sits between the two populations.",
+        "tolerance_gap 1.5s merges jitter-fragmented stops into one segment",
+        "(bus #529: raw max 15.3s contiguous, true 33.4s).",
+        "",
+        "The 7 events this produces are all in the east leg / lower junction,",
+        "downstream of the calibrated stop line, where no signal is readable",
+        "from this camera. They are queue-like but are left reported rather than",
+        "suppressed, because suppressing them would mean inventing a signal",
+        "state. See camera.md, Known ambiguity item 2."
+      ]
+    },
+    "wrong_way": {
+      "enabled": true,
+      "window": 2.5,
+      "direction_dot": -0.45,
+      "min_travel_px": 45.0,
+      "min_speed": 6.0,
+      "confirm_sec": 1.5,
+      "lane_allowlist": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "_note": [
+        "Lanes 0-3 are the directional lanes rebuilt from measurement:",
+        "0/1 are the westbound carriageway, 2/3 the eastbound one. Opposing",
+        "share fell from 82.8/70.6/42.7/8.9 percent to 0.7/0.5/1.8/3.5 over",
+        "the same 10200 frames, and the rule produces 0 events on both sample",
+        "videos while still firing on synthetic violations in all four lanes",
+        "(scripts/validate_wrong_way_detection.py).",
+        "",
+        "The residual 3.5 percent in lane 3 is deceleration into a queue, not",
+        "wrong-way driving: every candidate was inspected individually."
+      ]
+    },
+    "red_light": {
+      "enabled": true,
+      "window": 3.0,
+      "approach_dot": 0.25,
+      "max_duration": 12.0,
+      "_note": [
+        "Fires on the vehicle's FRONT crossing the stop line while the head",
+        "that governs the line is red. Yellow is deliberately not treated as",
+        "red, and an unreadable head leaves the rule silent rather than",
+        "assuming a state.",
+        "",
+        "The governing head is matched by declared approach direction, not by",
+        "image position: a signal head is mounted high, so its ROI projects",
+        "above the road point it governs. See SceneContext.signal_for_line."
+      ]
+    },
+    "stop_line": {
+      "enabled": true,
+      "window": 2.5,
+      "net_max_px": 25.0,
+      "path_max_px": 250.0,
+      "max_past_px": 120.0,
+      "min_red_sec": 0.4,
+      "_note": [
+        "Stopped PAST the line on red, without entering the junction. The end",
+        "condition is the official one: the signal turning green clears the",
+        "event, which is why the colour is re-read every frame rather than",
+        "latched at the start."
+      ]
+    },
+    "congestion": {
+      "enabled": true,
+      "speed": 8.0,
+      "duration": 5.0,
+      "min_vehicles": 3,
+      "lane_share": 1.0,
+      "window": 2.5,
+      "net_max_px": 40.0,
+      "path_max_px": 400.0,
+      "tolerance_gap": 2.0,
+      "_note": [
+        "Group-level: standstill or crawling across every lane of one travel",
+        "direction, so a single stopped car can never raise it. A standing",
+        "queue at a red light is excluded, since that is the road working as",
+        "designed rather than congestion."
+      ]
+    },
+    "jaywalking": {
+      "enabled": true,
+      "window": 2.5,
+      "net_max_px": 20.0,
+      "path_max_px": 400.0,
+      "duration": 1.5,
+      "require_motion": true,
+      "min_speed": 8.0,
+      "_note": [
+        "A pedestrian on the carriageway and outside every calibrated",
+        "crossing. Standing on the road is not jaywalking, because the official",
+        "definition is about entering the carriageway. The start is taken from",
+        "the moment the pedestrian's bottom centre left non-road, so it is not",
+        "anchored to whichever frame first noticed."
+      ],
+      "crossing_margin_px": 40.0
+    },
+    "failure_to_yield": {
+      "enabled": true,
+      "min_speed": 20.0,
+      "approach_px": 420.0,
+      "kerb_px": 30.0,
+      "window": 2.0,
+      "net_max_px": 20.0,
+      "path_max_px": 200.0,
+      "_note": [
+        "Requires an interaction: a pedestrian inside (or stepping onto) a",
+        "crossing and a vehicle passing through that same crossing while still",
+        "moving. A vehicle that halts for the pedestrian is compliant and is",
+        "excluded, and proximity on its own is never sufficient."
+      ],
+      "conflict_px": 60.0
+    },
+    "solid_line_crossing": {
+      "enabled": true,
+      "window": 3.0,
+      "crossing_dot": 0.2,
+      "hold": 0.8,
+      "edge_margin_px": 12.0,
+      "_note": [
+        "Requires the vehicle to change SIDES of the marking, which separates",
+        "a real crossing from a vehicle tracking along a line, and requires the",
+        "crossing to be over the drawn segment rather than past its end. The",
+        "calibrated markings here are the road edges and the median kerb, so",
+        "crossing one of them is a genuine violation."
+      ],
+      "perpendicular_dot": 0.45
+    },
+    "illegal_turn": {
+      "enabled": true,
+      "min_angle": 0.6,
+      "window": 3.0,
+      "min_speed": 15.0,
+      "hold": 0.8,
+      "_note": [
+        "Judged from the lane's declared allowed_moves, never from the fact",
+        "that a vehicle turned. A vehicle that changes lane while still",
+        "following its lane direction is a lane change and is excluded, and a",
+        "turn through the junction (where no lane applies) is not judged at",
+        "all because there is no lane to be wrong about."
+      ]
+    },
+    "illegal_u_turn": {
+      "enabled": true,
+      "window": 6.0,
+      "current_window": 1.2,
+      "angle": 2.35,
+      "min_speed": 10.0,
+      "hold": 0.8,
+      "_note": [
+        "The manoeuvre is recovered from trajectory history as a sustained",
+        "heading reversal that returns towards its origin, which is what",
+        "separates a U-turn from driving through the junction.",
+        "",
+        "Prohibition is claimed only from what is observable here: the main",
+        "carriageway is divided by a kerbed median, so a U-turn across it is",
+        "prohibited by the road itself. There is no No-U-turn sign in view, so",
+        "sign evidence is NOT claimed. The manoeuvre must also end up against",
+        "the flow of the lane it started in."
+      ]
+    },
+    "accident": {
+      "enabled": true,
+      "hold": 0.5,
+      "_note": [
+        "The gate is a TRANSITION from motion to rest, not a threshold, and both",
+        "halves are load-bearing. Measured over 659210 real track pairs on",
+        "data_video2, box IoU reaches 0.97 in ordinary queued traffic, because",
+        "the camera looks obliquely down the carriageway and the lead vehicle's",
+        "box covers the one behind it (scripts/measure_interaction_metrics.py).",
+        "So:",
+        "",
+        "1. Contact is judged in the ROAD frame, not the image. A queue is",
+        "   separated ALONG the road by about a car length; a collision is",
+        "   separated in neither direction. contact_along_px 45 and",
+        "   contact_across_px 70.",
+        "2. The pair must be AT REST now and MUST have been MOVING over the",
+        "   preceding approach_window. 'At rest' alone admits every pair in a",
+        "   standing queue. 'Was moving' alone admits a fast pass-through, where",
+        "   the tracker carries the boxes through each other so overlap and",
+        "   heading change both look like contact while neither vehicle stops.",
+        "3. Only one of the pair needs to have been moving: in a rear-end",
+        "   collision only the striking vehicle stops abruptly.",
+        "",
+        "This took accident from 28 segments to 7 on data_video2, on a video with",
+        "no visible collision. The 7 that remain are candidates, not confirmed",
+        "events. Two vehicles are required; a pedestrian conflict belongs to",
+        "failure_to_yield, which judges the crossing geometry."
+      ],
+      "require_shared_lane": true,
+      "contact_along_px": 45.0,
+      "contact_across_px": 70.0,
+      "stop_window": 2.0,
+      "stop_net_px": 30.0,
+      "stop_path_px": 200.0,
+      "approach_window": 4.0
+    },
+    "near_miss": {
+      "enabled": true,
+      "ttc": 2.5,
+      "gap_px": 140.0,
+      "decel": 400.0,
+      "swerve": 0.9,
+      "hold": 0.5,
+      "require_shared_lane": true,
+      "_note": [
+        "Defined by the evasive action itself: a finite TTC inside a small gap",
+        "AND a sharp deceleration or heading change. Braking to a queue at a",
+        "signal has no closing partner, so it cannot produce this event, which",
+        "is what separates it from ordinary queue behaviour."
+      ],
+      "min_speed": 25.0,
+      "min_relative_speed": 40.0,
+      "queue_along_px": 70.0
+    },
+    "road_obstacle": {
+      "enabled": true,
+      "duration": 1.0,
+      "max_speed": 6.0,
+      "_note": [
+        "Depends on the detector exposing obstacle-like categories. The",
+        "competition checkpoint is trained on the eight road-user classes and",
+        "emits nothing that maps to an obstacle, so with it this rule stays",
+        "silent rather than guessing. Discrimination when such classes exist:",
+        "persistence on the carriageway, and not moving away."
+      ]
+    },
+    "fire_smoke": {
+      "enabled": true,
+      "duration": 0.5,
+      "_note": [
+        "Same dependency as road_obstacle: needs a detector class for fire or",
+        "smoke. The competition checkpoint has none, so the rule cannot fire",
+        "with it. Documented rather than approximated with a colour heuristic,",
+        "which would fire on brake lights and sunlight."
+      ]
+    }
   },
   "risk": {
     "horizon_sec": 5.0,
-    "ttc_floor": 0.45,
-    "near_distance_px": 180.0,
-    "pedestrian_distance_px": 140.0,
+    "ttc_floor": 0.35,
+    "near_distance_px": 360.0,
+    "pedestrian_distance_px": 280.0,
     "closing_speed_scale": 180.0,
     "deceleration_scale": 80.0,
     "decay": 0.85,
-    "accident_boost": 0.90,
+    "accident_boost": 0.9,
     "near_miss_boost": 0.68,
-    "wrong_way_boost": 0.58
+    "wrong_way_boost": 0.58,
+    "red_light_boost": 0.45,
+    "note": [
+      "The pre-collision ramp is built on min_conflict_ttc, the minimum TTC over",
+      "pairs that share a calibrated lane (or involve a pedestrian) and are actually",
+      "closing. A raw minimum over all pairs is a measure of traffic density: 30",
+      "vehicles in a queue always contain a pair with a short TTC. Measured on",
+      "data_video2, using the raw minimum put 177 of 180 frames above the official",
+      "0.5 alarm threshold, i.e. a constant alarm. See scripts/validate_risk_causality.py."
+    ],
+    "_reference_width": 3840,
+    "_note": [
+      "Every pixel threshold in this block is expressed in the 3840x2160",
+      "reference resolution and scaled to the actual frame by",
+      "src/risk/features.py (REFERENCE_WIDTH). The same camera delivers this",
+      "intersection at 3840x2160 and 1920x1080, so a fixed pixel distance is",
+      "twice as permissive at 4K for the same physical separation. That was a",
+      "real bug: measured on data_video1 at 4K the score saturated, with 97.5%",
+      "of frames above the official 0.5 alarm threshold and a single 307s",
+      "alarm run, while the same code on data_video2 at 1080p produced 0%.",
+      "",
+      "The values below are the data_video2 measurements (at 1080p) doubled, so",
+      "the scale reproduces exactly what was measured: near_distance_px 180,",
+      "pedestrian_distance_px 140.",
+      "",
+      "The pre-collision ramp is built on min_conflict_ttc, the minimum TTC over",
+      "pairs that share a calibrated lane (or involve a pedestrian), are",
+      "genuinely closing, and are closer than a car length in the road frame.",
+      "A raw minimum over all pairs is a measure of traffic density: thirty",
+      "vehicles in a queue always contain a pair with a short TTC. Measured on",
+      "data_video2, using the raw minimum put 177 of 180 frames above the",
+      "official 0.5 alarm threshold, i.e. a constant alarm. See",
+      "scripts/validate_risk_causality.py and scripts/measure_risk_terms.py."
+    ],
+    "ttc_ramp_sec": 2.0,
+    "_scoring_constants": [
+      "ttc_floor 0.35: the value a confirmed imminent conflict starts from.",
+      "  Deliberately below the official 0.5 alarm threshold, so the other",
+      "  interaction terms decide when an alarm is actually raised.",
+      "ttc_ramp_sec 2.0: the ramp is SHORTER than the 5 s reporting horizon",
+      "  on purpose. The score is a confidence that a collision is imminent,",
+      "  not a countdown, and a pair still 4 s away is not yet risk. Measured",
+      "  effect on data_video1 (4K, busiest sample): frames at or above the",
+      "  alarm threshold fell 97.5% -> 80% -> 16% as the conflict gate, the",
+      "  evasive threshold and this ramp length were added, each after the",
+      "  previous measure showed which term was saturating."
+    ],
+    "_high_end_not_calibrated": [
+      "There is no confirmed accident in either sample video, so there is no",
+      "positive example to calibrate the HIGH end of this score against. Every",
+      "threshold here was chosen to keep ordinary traffic LOW and the score",
+      "in range, which is what a chance-normalised AP rewards; the magnitude",
+      "of the score near a real collision is unvalidated. This is stated rather",
+      "than hidden, and it is the main outstanding Part B limitation."
+    ]
   },
   "temporal": {
-    "merge_gap": 1.0,
+    "merge_gap": 1.5,
     "min_duration": {
       "accident": 0.3,
       "near_miss": 0.3,
@@ -71,7 +389,7 @@
   },
   "debug": {
     "enabled": false,
-    "write_video": true,
+    "write_video": false,
     "dump_jsonl": false,
     "output_dir": "debug"
   }

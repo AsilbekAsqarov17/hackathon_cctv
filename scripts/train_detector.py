@@ -27,6 +27,15 @@ def main() -> int:
     except ImportError as exc:
         raise SystemExit("Install requirements-part-a.txt before fine-tuning") from exc
 
+    # Ultralytics prefixes a *relative* --project with <runs_dir>/<task>, so
+    # "runs/detect" resolves to "runs/detect/runs/detect" and the run output
+    # ends up nested one level deeper than the caller asked for. Resolving the
+    # project to an absolute path keeps the intended layout while leaving the
+    # command-line interface unchanged.
+    project = Path(args.project).expanduser()
+    if not project.is_absolute():
+        project = (Path.cwd() / project).resolve()
+
     model = YOLO(args.model)
     kwargs = {
         "data": args.data,
@@ -34,14 +43,17 @@ def main() -> int:
         "imgsz": args.imgsz,
         "batch": args.batch,
         "workers": args.workers,
-        "project": args.project,
+        "project": str(project),
         "name": args.name,
         "exist_ok": True,
     }
     if args.device:
         kwargs["device"] = args.device
     model.train(**kwargs)
-    print(f"weights saved under {Path(args.project) / args.name / 'weights'}")
+    # Report where Ultralytics actually wrote the weights rather than guessing,
+    # so the path stays correct if the layout changes again.
+    save_dir = Path(model.trainer.save_dir)
+    print(f"weights saved under {save_dir / 'weights'}")
     return 0
 
 

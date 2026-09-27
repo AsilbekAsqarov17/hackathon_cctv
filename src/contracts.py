@@ -4,6 +4,8 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Deque, Optional
 
+from .scene.geometry import normalized_vector
+
 BBox = tuple[float, float, float, float]
 Point = tuple[float, float]
 
@@ -51,6 +53,12 @@ class TrackState:
     bottom_history: Deque[tuple[float, float, float]] = field(
         default_factory=lambda: deque(maxlen=300)
     )
+    # Historical boxes, one per frame. The official `red_light` and `stop_line`
+    # definitions are written against the vehicle's FRONT, so the rules need to
+    # know where the leading edge was, not just where the centre was.
+    bbox_history: Deque[tuple[float, float, float, float, float]] = field(
+        default_factory=lambda: deque(maxlen=300)
+    )
     lane_id: Optional[int] = None
     lane_history: list[int] = field(default_factory=list)
     stopped_since: Optional[float] = None
@@ -86,6 +94,31 @@ class TrackState:
     def recent_bottom_points(self, seconds: float, timestamp: float) -> list[tuple[float, float, float]]:
         cutoff = timestamp - max(0.0, seconds)
         return [p for p in self.bottom_history if p[0] >= cutoff]
+
+    def front_path(
+        self, direction: Point, seconds: float, timestamp: float
+    ) -> list[tuple[float, float, float]]:
+        """Leading edge of the vehicle over the trailing window.
+
+        ``direction`` is the permitted travel direction of the lane or line
+        being tested; the returned point is the corner of the historical box
+        furthest along it, which is the front bumper for a vehicle travelling
+        that way. Returns an empty list when box history is unavailable, so
+        callers can fall back to a centre-based test.
+        """
+        unit = normalized_vector(direction)
+        if unit is None:
+            return []
+        cutoff = timestamp - max(0.0, seconds)
+        result: list[tuple[float, float, float]] = []
+        for entry in self.bbox_history:
+            if not (cutoff <= entry[0] <= timestamp + 1e-6):
+                continue
+            x1, y1, x2, y2 = entry[1], entry[2], entry[3], entry[4]
+            reach = abs(unit[0]) * (x2 - x1) / 2.0 + abs(unit[1]) * (y2 - y1) / 2.0
+            cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+            result.append((entry[0], cx + unit[0] * reach, cy + unit[1] * reach))
+        return result
 
     def heading(self, seconds: float = 1.0, timestamp: float | None = None) -> Point | None:
         """Return a recent image-space displacement vector."""

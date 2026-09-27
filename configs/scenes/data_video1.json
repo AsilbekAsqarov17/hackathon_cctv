@@ -1,35 +1,718 @@
 {
+  "_comment": [
+    "data_video1 fixed-camera scene. SOURCE PIXEL coordinates, normalized=false.",
+    "",
+    "LANES ARE NOW DIRECTIONAL. The previous 4 lanes all carried direction",
+    "[1.0, 0.11] but spanned y~225-1105, which physically contains BOTH",
+    "streams of a two-way road, so 82.8/70.6/42.7/8.9 percent of moving tracks",
+    "in lanes 0/1/2/3 opposed that direction.",
+    "",
+    "Evidence (scripts/flow_map_2d.py, scripts/measure_stream_bands.py over all",
+    "10200 frames, turning traffic excluded by requiring |vx| > 0.8|vy| and",
+    ">= 150 px of travel over 4 s): the main carriageway is a pair of PARALLEL",
+    "diagonal bands. Measured percentiles, westbound p05..p95 then eastbound",
+    "p05..p95, at x = 668/914/1405/2141/2386/2632/2877:",
+    "  W 241-380 282-444 439-713 673-885 716-991 807-1115 845-1156",
+    "  E 432-856 493-945 726-1103 1221-1570 1187-1662 1242-1760 1346-1974",
+    "Least-squares fits used for the lane edges (y = a + b*x):",
+    "  W far edge  40 + 0.280x     W mid 85.5 + 0.331x     W near edge 131 + 0.382x",
+    "  E far edge 171 + 0.382x     E mid 305.5 + 0.456x    E near edge 440 + 0.530x",
+    "The bands are separated by a constant 40 px median gap so lane_for_point is",
+    "unambiguous; the two direction vectors are the measured band slopes, i.e.",
+    "(-1, -0.30) for the far/westbound carriageway and (1, +0.47) for the",
+    "near/eastbound carriageway.",
+    "",
+    "LANE EXTENTS ARE DELIBERATELY CLIPPED. East of x=2600 the layout is a",
+    "junction: a one-way westbound leg (y 720-1200, ~100 percent westbound), a",
+    "one-way eastbound leg (y 1200-1920, ~100 percent eastbound) and the lower",
+    "two-way road (westbound x<2000 at y 1680-2160). Directional reasoning is",
+    "only asserted where the two streams were measured to be cleanly separated,",
+    "so the eastbound lanes end at x=2600 and the westbound band narrows after",
+    "x=2600 to follow the measured 356 -> 270 -> 208 px width. Everything else",
+    "is road_polygons only and therefore carries no direction claim.",
+    "",
+    "Stop line, solid lines, crossings, road_polygons and signal ROIs are",
+    "UNCHANGED from the earlier calibration: they were verified independently",
+    "and stopped_vehicle queue suppression depends on them. See camera.md."
+  ],
   "scene_id": "data_video1",
-  "normalized": true,
+  "normalized": false,
+  "_reference_note": [
+    "Coordinates below are pixels in the 3840x2160 authoring resolution.",
+    "reference_size lets one authored scene serve every resolution of this",
+    "camera: load_scene_config maps them onto the actual video frame, so the",
+    "same intersection at 1920x1080 is handled without a second scene file.",
+    "Verified on data/data_video2.mp4 (1920x1080, same viewpoint)."
+  ],
+  "reference_size": [
+    3840,
+    2160
+  ],
   "auto_road_fallback": false,
   "road_polygons": [
-    [[0.00, 0.08], [0.48, 0.35], [1.00, 0.48], [1.00, 0.68], [0.48, 0.57], [0.00, 0.40]],
-    [[0.00, 0.60], [0.45, 0.40], [1.00, 0.18], [1.00, 0.38], [0.45, 0.60], [0.00, 0.95]]
+    [
+      [
+        0,
+        205
+      ],
+      [
+        900,
+        340
+      ],
+      [
+        1800,
+        480
+      ],
+      [
+        2500,
+        580
+      ],
+      [
+        2500,
+        790
+      ],
+      [
+        1800,
+        690
+      ],
+      [
+        900,
+        560
+      ],
+      [
+        0,
+        430
+      ]
+    ],
+    [
+      [
+        0,
+        430
+      ],
+      [
+        900,
+        560
+      ],
+      [
+        1800,
+        690
+      ],
+      [
+        2500,
+        790
+      ],
+      [
+        2500,
+        1105
+      ],
+      [
+        1800,
+        1090
+      ],
+      [
+        900,
+        1050
+      ],
+      [
+        0,
+        990
+      ]
+    ],
+    [
+      [
+        2000,
+        790
+      ],
+      [
+        2600,
+        800
+      ],
+      [
+        3200,
+        780
+      ],
+      [
+        3840,
+        740
+      ],
+      [
+        3840,
+        1180
+      ],
+      [
+        3200,
+        1150
+      ],
+      [
+        2600,
+        1130
+      ],
+      [
+        2000,
+        1120
+      ]
+    ],
+    [
+      [
+        900,
+        1300
+      ],
+      [
+        1800,
+        1200
+      ],
+      [
+        2700,
+        1150
+      ],
+      [
+        3840,
+        1180
+      ],
+      [
+        3840,
+        2160
+      ],
+      [
+        900,
+        2160
+      ]
+    ]
   ],
   "lanes": [
-    {"id": 0, "name": "road_a_SE", "polygon": [[0.00, 0.08], [0.48, 0.35], [1.00, 0.48], [1.00, 0.57], [0.48, 0.46], [0.00, 0.24]], "direction": [1.0, 0.35], "allowed_moves": ["straight", "right"]},
-    {"id": 1, "name": "road_a_NW", "polygon": [[0.00, 0.25], [0.48, 0.46], [1.00, 0.57], [1.00, 0.68], [0.48, 0.57], [0.00, 0.40]], "direction": [-1.0, -0.35], "allowed_moves": ["straight", "left"]},
-    {"id": 2, "name": "road_b_NE", "polygon": [[0.00, 0.60], [0.45, 0.40], [1.00, 0.18], [1.00, 0.28], [0.45, 0.52], [0.00, 0.78]], "direction": [1.0, -0.40], "allowed_moves": ["straight", "right"]},
-    {"id": 3, "name": "road_b_SW", "polygon": [[0.00, 0.78], [0.45, 0.52], [1.00, 0.28], [1.00, 0.38], [0.45, 0.65], [0.00, 0.95]], "direction": [-1.0, 0.40], "allowed_moves": ["straight", "left"]}
+    {
+      "id": 0,
+      "name": "W_outer",
+      "polygon": [
+        [
+          200,
+          96
+        ],
+        [
+          800,
+          264
+        ],
+        [
+          1400,
+          432
+        ],
+        [
+          2000,
+          600
+        ],
+        [
+          2600,
+          768
+        ],
+        [
+          3000,
+          880
+        ],
+        [
+          3400,
+          992
+        ],
+        [
+          3400,
+          1080
+        ],
+        [
+          3000,
+          1000
+        ],
+        [
+          2600,
+          946
+        ],
+        [
+          2000,
+          748
+        ],
+        [
+          1400,
+          549
+        ],
+        [
+          800,
+          350
+        ],
+        [
+          200,
+          152
+        ]
+      ],
+      "direction": [
+        -1.0,
+        -0.3
+      ],
+      "allowed_moves": [
+        "straight"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "W_inner",
+      "polygon": [
+        [
+          200,
+          152
+        ],
+        [
+          800,
+          350
+        ],
+        [
+          1400,
+          549
+        ],
+        [
+          2000,
+          748
+        ],
+        [
+          2600,
+          946
+        ],
+        [
+          3000,
+          1000
+        ],
+        [
+          3400,
+          1080
+        ],
+        [
+          3400,
+          1200
+        ],
+        [
+          3000,
+          1150
+        ],
+        [
+          2600,
+          1124
+        ],
+        [
+          2000,
+          895
+        ],
+        [
+          1400,
+          666
+        ],
+        [
+          800,
+          437
+        ],
+        [
+          200,
+          207
+        ]
+      ],
+      "direction": [
+        -1.0,
+        -0.3
+      ],
+      "allowed_moves": [
+        "straight"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "E_inner",
+      "polygon": [
+        [
+          200,
+          247
+        ],
+        [
+          800,
+          477
+        ],
+        [
+          1400,
+          706
+        ],
+        [
+          2000,
+          935
+        ],
+        [
+          2600,
+          1164
+        ],
+        [
+          2600,
+          1491
+        ],
+        [
+          2000,
+          1218
+        ],
+        [
+          1400,
+          944
+        ],
+        [
+          800,
+          670
+        ],
+        [
+          200,
+          397
+        ]
+      ],
+      "direction": [
+        1.0,
+        0.47
+      ],
+      "allowed_moves": [
+        "straight"
+      ],
+      "approach_point": [
+        1600,
+        900
+      ]
+    },
+    {
+      "id": 3,
+      "name": "E_outer",
+      "polygon": [
+        [
+          200,
+          397
+        ],
+        [
+          800,
+          670
+        ],
+        [
+          1400,
+          944
+        ],
+        [
+          2000,
+          1218
+        ],
+        [
+          2600,
+          1491
+        ],
+        [
+          2600,
+          1818
+        ],
+        [
+          2000,
+          1500
+        ],
+        [
+          1400,
+          1182
+        ],
+        [
+          800,
+          864
+        ],
+        [
+          200,
+          546
+        ]
+      ],
+      "direction": [
+        1.0,
+        0.47
+      ],
+      "allowed_moves": [
+        "straight"
+      ],
+      "approach_point": [
+        1600,
+        1200
+      ]
+    }
+  ],
+  "_stop_line_note": [
+    "b_eastbound_stop is the ONLY signal-controlled approach at this camera.",
+    "",
+    "DERIVED, NOT AUTHORED BY EYE. scripts/fit_stop_line_sweep.py places it:",
+    "",
+    "1. The head that governs this line is found by declared approach direction",
+    "   (SceneContext.signal_for_line), not by image position, because a signal",
+    "   head is mounted high and projects above the road point it controls.",
+    "2. The crossing that head faces is the one traffic queues for. On this",
+    "   camera that is crossing[1] (centre 1040,276 at 1080p, 161px from the",
+    "   head) and NOT crossing[0] (207px away). An earlier calibration anchored",
+    "   to crossing[0] and therefore placed the line inside the junction, where",
+    "   it was crossed by ordinary through traffic.",
+    "3. The line is then swept upstream from that crossing and scored against",
+    "   the queue itself: the vehicles that HELD the queue (those that stopped",
+    "   upstream of the crossing, not the ones blocked inside it) are the",
+    "   calibration target. Setback 80px puts them at -19px and -17px, i.e.",
+    "   their noses park right at the line; every other setback is worse.",
+    "4. The segment is extended perpendicular to travel until it leaves the",
+    "   governed carriageway on both sides, so it spans the whole approach.",
+    "   scripts/check_line_span.py asserts this and runs in the test suite.",
+    "",
+    "The old segment covered only the top ~20% of the carriageway, so crossings",
+    "on the rest of it were invisible and red_light could not fire at all.",
+    "",
+    "Crossing detection uses the vehicle FRONT bumper (the bbox edge furthest",
+    "along `direction`), matching the official definition that the event starts",
+    "when the front of the vehicle crosses the line. `direction` is the",
+    "measured eastbound travel direction, which is also what queue suppression",
+    "needs to decide which side is the approach."
   ],
   "stop_lines": [
-    {"id": "road_a_nw_stop", "segment": [[0.00, 0.40], [0.40, 0.54]], "direction": [1.0, 0.35]},
-    {"id": "road_a_se_stop", "segment": [[0.62, 0.55], [1.00, 0.68]], "direction": [1.0, 0.35]},
-    {"id": "road_b_sw_stop", "segment": [[0.00, 0.78], [0.40, 0.58]], "direction": [1.0, -0.40]},
-    {"id": "road_b_ne_stop", "segment": [[0.62, 0.42], [1.00, 0.27]], "direction": [1.0, -0.40]}
+    {
+      "id": "b_eastbound_stop",
+      "segment": [
+        [
+          1824,
+          804
+        ],
+        [
+          1574,
+          1334
+        ]
+      ],
+      "direction": [
+        1.0,
+        0.47
+      ]
+    }
   ],
   "solid_lines": [
-    {"id": "road_a_center", "segment": [[0.00, 0.24], [0.48, 0.46], [1.00, 0.57]]},
-    {"id": "road_b_center", "segment": [[0.00, 0.78], [0.45, 0.52], [1.00, 0.28]]}
+    {
+      "id": "a_far_edge",
+      "segment": [
+        [
+          0,
+          205
+        ],
+        [
+          900,
+          340
+        ],
+        [
+          1800,
+          480
+        ],
+        [
+          2500,
+          580
+        ]
+      ]
+    },
+    {
+      "id": "a_median_edge",
+      "segment": [
+        [
+          0,
+          430
+        ],
+        [
+          900,
+          560
+        ],
+        [
+          1800,
+          690
+        ],
+        [
+          2500,
+          790
+        ]
+      ]
+    },
+    {
+      "id": "b_near_edge",
+      "segment": [
+        [
+          0,
+          990
+        ],
+        [
+          900,
+          1050
+        ],
+        [
+          1800,
+          1090
+        ],
+        [
+          2500,
+          1105
+        ]
+      ]
+    },
+    {
+      "id": "island_center_far",
+      "segment": [
+        [
+          1024,
+          1365
+        ],
+        [
+          1493,
+          1493
+        ]
+      ]
+    },
+    {
+      "id": "island_center_near",
+      "segment": [
+        [
+          1365,
+          1707
+        ],
+        [
+          2240,
+          1685
+        ]
+      ]
+    },
+    {
+      "id": "island_lower_far",
+      "segment": [
+        [
+          533,
+          1877
+        ],
+        [
+          960,
+          2027
+        ]
+      ]
+    }
   ],
   "crosswalks": [
-    {"id": "crosswalk_sw", "polygon": [[0.00, 0.58], [0.10, 0.54], [0.40, 0.78], [0.25, 0.90]]},
-    {"id": "crosswalk_center", "polygon": [[0.12, 0.52], [0.62, 0.39], [0.73, 0.47], [0.20, 0.62]]},
-    {"id": "crosswalk_ne", "polygon": [[0.63, 0.40], [0.90, 0.29], [1.00, 0.37], [0.73, 0.50]]}
+    {
+      "id": "xwalk_main",
+      "polygon": [
+        [
+          2190,
+          990
+        ],
+        [
+          3080,
+          920
+        ],
+        [
+          3080,
+          1080
+        ],
+        [
+          2190,
+          1150
+        ]
+      ]
+    },
+    {
+      "id": "xwalk_upper",
+      "polygon": [
+        [
+          1813,
+          500
+        ],
+        [
+          2347,
+          460
+        ],
+        [
+          2347,
+          600
+        ],
+        [
+          1813,
+          645
+        ]
+      ]
+    },
+    {
+      "id": "xwalk_center",
+      "polygon": [
+        [
+          700,
+          1184
+        ],
+        [
+          1920,
+          1024
+        ],
+        [
+          1920,
+          1280
+        ],
+        [
+          789,
+          1323
+        ]
+      ]
+    },
+    {
+      "id": "xwalk_lower",
+      "polygon": [
+        [
+          480,
+          1340
+        ],
+        [
+          1880,
+          2060
+        ],
+        [
+          1620,
+          2160
+        ],
+        [
+          400,
+          1660
+        ]
+      ]
+    }
   ],
   "traffic_lights": [
-    {"id": "nw_signal", "roi": [0.105, 0.415, 0.145, 0.515]},
-    {"id": "center_signal", "roi": [0.555, 0.285, 0.595, 0.385]},
-    {"id": "ne_signal", "roi": [0.790, 0.315, 0.830, 0.415]}
+    {
+      "id": "signal_eastbound",
+      "roi": [
+        2293,
+        708,
+        2345,
+        828
+      ],
+      "direction": [
+        1.0,
+        0.47
+      ]
+    },
+    {
+      "id": "signal_left",
+      "roi": [
+        513,
+        953,
+        574,
+        1054
+      ],
+      "direction": [
+        -1.0,
+        -0.3
+      ]
+    }
+  ],
+  "_signal_note": [
+    "Each signal ROI declares the approach direction it faces. A head is",
+    "matched to a stop line by comparing declared directions, NOT by image",
+    "position: a head sits several metres up, so its ROI projects well above",
+    "the road point it governs and can look 'upstream' in the image. See",
+    "SceneContext.signal_for_line.",
+    "",
+    "signal_eastbound governs the only signal-controlled approach here.",
+    "signal_left faces the opposite way and is never used to judge that",
+    "line; it would be used only if a westbound stop line were calibrated.",
+    "",
+    "There is no readable signal on the east leg: those heads face away from",
+    "this camera, so that region deliberately has no stop line."
   ]
 }

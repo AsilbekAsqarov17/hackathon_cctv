@@ -29,6 +29,13 @@ def main() -> int:
     print(f"scipy: {bool(importlib.util.find_spec('scipy'))}")
     print(f"lap: {bool(importlib.util.find_spec('lap'))}")
     print(f"cython_bbox: {bool(importlib.util.find_spec('cython_bbox'))}")
+    if importlib.util.find_spec("onnxruntime"):
+        import onnxruntime as ort
+
+        print(f"onnxruntime: {ort.__version__}")
+        print(f"onnx_providers: {ort.get_available_providers()}")
+    else:
+        print("onnxruntime: False")
     print(f"model: {model_path} ({'found' if model_path.exists() else 'missing'})")
     print(f"scene default: {(root / 'configs/scenes/default.json').exists()}")
     return 0

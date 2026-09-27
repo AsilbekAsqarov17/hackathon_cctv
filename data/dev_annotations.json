@@ -1,0 +1,37 @@
+{
+  "_README": [
+    "DEVELOPMENT ANNOTATIONS for the two sample videos.",
+    "",
+    "The hackathon ships no ground truth for these videos, so this file is this",
+    "project's own annotation set. It is NOT ground truth and no metric computed",
+    "from it should be presented as a competition score.",
+    "",
+    "How each entry was established:",
+    "* every interval was located by running the pipeline and then CONFIRMED by",
+    "  looking at the video with scripts/inspect_rule_frame.py, which renders the",
+    "  tracks, the signal colour read from the calibrated ROI, and each track's",
+    "  front-bumper position relative to the stop line;",
+    "* the red_light intervals were additionally checked against the signal",
+    "  phase timeline, and the supporting frame for the first one is committed",
+    "  at docs/evidence/red_light_track203.jpg.",
+    "",
+    "Coverage is PARTIAL and deliberately so. Only events a human actually",
+    "verified in the video are listed. An empty class means \"no verified",
+    "instance was found\", NOT \"this class is absent from the video\", so the",
+    "false-positive count measured against this file is an upper bound.",
+    "",
+    "The most important negative finding is recorded explicitly: neither sample",
+    "video contains a visible collision, so `accident` is empty and the official",
+    "Part B score reduces to Score_A for this data."
+  ],
+  "videos": {
+    "data_video2.mp4": {
+      "duration": 317.817,
+      "fps": 29.97,
+      "events": [
+        [94.09, 94.80, "red_light"],
+        [244.14, 244.94, "red_light"]
+      ]
+    }
+  }
+}

@@ -216,6 +216,17 @@ def build_detector(config: dict[str, Any]) -> Any:
         except Exception as exc:
             warnings.warn(f"ONNX detector unavailable ({exc}); falling back to no detections")
             return NullDetector()
+    if backend == "hybrid":
+        try:
+            from .hybrid import HybridDetector
+
+            return HybridDetector(config)
+        except Exception as exc:
+            if bool(config.get("fallback_motion", False)):
+                warnings.warn(f"hybrid detector unavailable ({exc}); using motion fallback")
+                return MotionDetector(config)
+            warnings.warn(f"hybrid detector unavailable ({exc}); Part A will run without detections")
+            return NullDetector()
     try:
         return YoloDetector(config)
     except Exception as exc:

@@ -1,12 +1,51 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.DS_Store
+
+# Large local working directories.
 runs/
 debug/
-.DS_Store
+
+# Sample videos are provided by the organizers, not by us.
 *.mp4
 *.avi
 *.mov
+
+# Scratch output of the inspection tools in scripts/ (70+ MB of crops, overlays
+# and probes). Regenerate with scripts/crop_region.py, scripts/overlay_geometry.py
+# and scripts/inspect_rule_frame.py. The curated subset that the report cites is
+# committed under docs/evidence/ instead.
+data/authoring/
+data/inspection/
+
+# Training set: ~400 MB of frames extracted from the sample video, plus the
+# YOLO label caches. Both are regenerable from data/*.mp4 via
+# scripts/train_detector.py, and the videos themselves are not in the repo, so
+# committing several hundred megabytes of duplicated frames would bloat the
+# repository without adding reproducibility. The split definition and the label
+# statistics are recorded in configs/detector_data.yaml.
+data/traffic_coco/
+*.cache
+
+# Model weights are handled explicitly: the selected checkpoint lives under
+# weights/ and IS committed so the submission runs offline. Everything else a
+# training run produces stays out.
+*.onnx
+!weights/yolo11n.onnx
+
+# Local checkpoints from training runs. The one the submission uses is copied to
+# weights/traffic_part_a_gpu_best.pt and is tracked from there.
+*.pt
+!weights/yolo11n.pt
+!weights/yolo26n.pt
+!weights/traffic_part_a_gpu_best.pt
+
 # Keep the selected checkpoint under weights/ for offline submission.
 # Add other local checkpoints explicitly if they are not part of the release.
-predictions*.json
+
+# predictions_samples.json IS part of the submission and must be committed.
+# Scratch prediction files are not.
+predictions_*.json
+predictions.json
+!predictions_samples.json

@@ -50,6 +50,7 @@ class TrackManager:
                 )
                 state.history.append((timestamp, center[0], center[1]))
                 state.bottom_history.append((timestamp, state.bottom_center[0], state.bottom_center[1]))
+                state.bbox_history.append((timestamp, *state.bbox))
                 self._states[track_id] = state
             else:
                 previous_center = state.center
@@ -96,6 +97,7 @@ class TrackManager:
                 state.missed_frames = 0
                 state.history.append((timestamp, center[0], center[1]))
                 state.bottom_history.append((timestamp, state.bottom_center[0], state.bottom_center[1]))
+                state.bbox_history.append((timestamp, *state.bbox))
             if scene is not None:
                 self._assign_lane(state, scene)
         for track_id, state in self._states.items():
@@ -156,6 +158,19 @@ class TrackManager:
             or TrackManager.is_person(state)
             or any(word in name for word in special)
         )
+
+    @staticmethod
+    def is_vehicle_from_name(name: str) -> bool:
+        """Name-only variant of :meth:`is_vehicle`, for analysis over dumps."""
+        lowered = name.lower()
+        return lowered in {
+            "car", "vehicle", "truck", "bus", "motorcycle", "motorbike", "bicycle", "bike",
+        }
+
+    @staticmethod
+    def is_person_from_name(name: str) -> bool:
+        """Name-only variant of :meth:`is_person`, for analysis over dumps."""
+        return name.lower() in {"person", "pedestrian", "human"}
 
     @staticmethod
     def center_distance(a: TrackState, b: TrackState) -> float:

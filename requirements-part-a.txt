@@ -5,7 +5,11 @@ scipy>=1.10
 lap>=0.5
 cython_bbox>=0.1
 onnx>=1.16
-onnxruntime-gpu>=1.20
+# onnxruntime-gpu >= 1.27 is built against CUDA 13, but NVIDIA publishes no
+# nvidia-cublas-cu13 / nvidia-cuda-runtime-cu13 wheels for Windows. Pin the
+# CUDA 12.8 + cuDNN 9 build line so the cu12 runtime packages below match.
+onnxruntime-gpu>=1.21,<1.27
 nvidia-cudnn-cu12
 nvidia-cublas-cu12
 nvidia-cuda-runtime-cu12
+nvidia-cuda-nvrtc-cu12

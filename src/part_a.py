@@ -157,10 +157,17 @@ class PartAPipeline:
                     context=scene_context,
                 )
                 state = FrameState(frame_id, timestamp, tracks, scene_state)
-                signals = self.rules.evaluate(state)
+                # Candidate form, not one flag per class: several objects can
+                # violate the same rule at once, and the segmenter needs to see
+                # each of them to emit a separate segment.
+                all_signals = self.rules.collect_signals(state)
+                signals = {
+                    label: (max(items, key=lambda s: s.confidence) if items else self.rules._inactive(label))
+                    for label, items in all_signals.items()
+                }
                 filtered = {
-                    label: signal
-                    for label, signal in signals.items()
+                    label: items
+                    for label, items in all_signals.items()
                     if label in self.active_classes
                 }
                 risk_samples.append(

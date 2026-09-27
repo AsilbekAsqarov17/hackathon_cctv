@@ -143,16 +143,48 @@ def angle_between(a: Point, b: Point) -> float:
 
 
 def rescale_points(
-    points: Iterable[Sequence[float]], width: int, height: int, normalized: bool
+    points: Iterable[Sequence[float]],
+    width: int,
+    height: int,
+    normalized: bool,
+    scale: tuple[float, float] = (1.0, 1.0),
 ) -> list[list[float]]:
+    """Map authored scene coordinates onto a video of ``width`` x ``height``.
+
+    ``normalized`` coordinates are fractions of the frame. Otherwise the values
+    are pixels in the authoring resolution, and ``scale`` converts them to the
+    actual video resolution. That indirection is what lets one authored scene
+    serve every video from the same camera, including the same intersection
+    delivered at half resolution.
+    """
+    sx, sy = scale
     result: list[list[float]] = []
     for point in points:
         x, y = float(point[0]), float(point[1])
         if normalized:
             x *= width
             y *= height
+        else:
+            x *= sx
+            y *= sy
         result.append([x, y])
     return result
+
+
+def scene_scale(
+    reference: Sequence[float] | None, width: int, height: int
+) -> tuple[float, float]:
+    """Per-axis factor from an authoring resolution to ``width`` x ``height``.
+
+    Returns ``(1.0, 1.0)`` when the scene declares no reference size, so older
+    scene files keep their previous behaviour exactly.
+    """
+    if not reference or len(reference) < 2:
+        return (1.0, 1.0)
+    ref_w, ref_h = float(reference[0]), float(reference[1])
+    if ref_w <= 0.0 or ref_h <= 0.0 or width <= 0 or height <= 0:
+        return (1.0, 1.0)
+    return (width / ref_w, height / ref_h)
 
 
 def compute_homography(
