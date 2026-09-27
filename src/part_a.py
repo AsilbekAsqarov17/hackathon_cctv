@@ -46,6 +46,7 @@ class PartAPipeline:
         self.write_debug_video = bool(self.config.get("debug", {}).get("write_video", True))
         self.dump_jsonl = bool(self.config.get("debug", {}).get("dump_jsonl", False))
         self.render_mode = str(self.config.get("debug", {}).get("render_mode", "tracks"))
+        self.dump_rules = bool(self.config.get("debug", {}).get("dump_rules", False))
         if self.render_mode not in {"tracks", "detections", "both"}:
             warnings.warn(f"unknown debug.render_mode {self.render_mode!r}; using 'tracks'")
             self.render_mode = "tracks"
@@ -165,6 +166,7 @@ class PartAPipeline:
         deadline = time.perf_counter() + max(5.0, budget)
         writer: cv2.VideoWriter | None = None
         flags_file = None
+        rules_file = None
         if self.debug_enabled:
             self.debug_dir.mkdir(parents=True, exist_ok=True)
             if self.write_debug_video:
@@ -181,6 +183,8 @@ class PartAPipeline:
                 )
             if self.dump_jsonl:
                 flags_file = (self.debug_dir / f"{Path(video_path).stem}_flags.jsonl").open("w", encoding="utf-8")
+            if self.dump_rules:
+                rules_file = (self.debug_dir / f"{Path(video_path).stem}_rules.jsonl").open("w", encoding="utf-8")
         processed = 0
         last_timestamp = 0.0
         perception_warned = False
@@ -265,6 +269,35 @@ class PartAPipeline:
                         + "\n"
                     )
                     known_ids |= active_ids
+                if rules_file is not None:
+                    # Per-rule record for every sampled frame, including the
+                    # rules that did *not* fire. Without the negative frames it
+                    # is impossible to tell a rule that is merely quiet from one
+                    # that is switched off, and impossible to answer "why did
+                    # this fire?" for an event that was emitted.
+                    rules_file.write(
+                        json.dumps(
+                            {
+                                "frame_id": frame_id,
+                                "timestamp": round(timestamp, 4),
+                                "n_detections": len(detections),
+                                "n_tracks": len(tracks),
+                                "rules": {
+                                    label: {
+                                        "active": bool(signal.active),
+                                        "confidence": round(float(signal.confidence), 3),
+                                        "start_hint": (
+                                            None if signal.start_hint is None
+                                            else round(float(signal.start_hint), 3)
+                                        ),
+                                        "evidence": signal.evidence,
+                                    }
+                                    for label, signal in signals.items()
+                                },
+                            }
+                        )
+                        + "\n"
+                    )
                 if writer is not None:
                     writer.write(self._draw_debug(frame, state, filtered, detections, self.render_mode))
                 processed += 1
@@ -274,6 +307,8 @@ class PartAPipeline:
                 writer.release()
             if flags_file is not None:
                 flags_file.close()
+            if rules_file is not None:
+                rules_file.close()
         if duration <= 0.0 and last_timestamp > 0.0:
             duration = last_timestamp + 1.0 / max(1.0, info.fps)
         events = segmenter.finalize(duration)

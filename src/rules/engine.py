@@ -51,6 +51,8 @@ class RuleEngine:
         # Per-pair contact history for accident: was this pair touching a moment
         # ago? A collision is a transition, a queue is a steady state.
         self._contact: dict[tuple[Any, ...], tuple[float, bool]] = {}
+        # Candidate impacts awaiting confirmation: (onset_time, approach_mps, max_speed_mps)
+        self._pending: dict[tuple[Any, ...], tuple[float, float, float]] = {}
 
     def _rule_config(self, label: str) -> dict[str, Any]:
         value = self.config.get(label, {})
@@ -175,6 +177,11 @@ class RuleEngine:
         return max(0.0, rate * scale) if scale else 0.0
 
     @staticmethod
+    def _scale_of(a: TrackState, b: TrackState) -> float:
+        scales = [x for x in (a.metres_per_pixel, b.metres_per_pixel) if x]
+        return max(scales) if scales else 0.0
+
+    @staticmethod
     def _gap_m(first: TrackState, second: TrackState) -> float | None:
         """Edge-to-edge distance between two boxes, in metres.
 
@@ -244,7 +251,9 @@ class RuleEngine:
         for other in state.tracks:
             if other.track_id == track.track_id or not TrackManager.is_vehicle(other):
                 continue
-            if self._near_line(other, line, 140.0) and (other.speed_mps or 0.0) <= 1.0:
+            # Same rule as _in_a_queue: an unmeasured speed is not a stopped
+            # speed, so it must not make a track look like a queue member.
+            if self._near_line(other, line, 140.0) and other.speed_mps is not None and other.speed_mps <= 1.0:
                 return True
         return False
 
@@ -276,7 +285,11 @@ class RuleEngine:
         for other in state.tracks:
             if other.track_id == track.track_id or not TrackManager.is_vehicle(other):
                 continue
-            if (other.speed_mps or 0.0) > stopped_mps:
+            # A track seen only once has no measured speed. Treating that as
+            # "stopped" would let a brand-new track vouch for a queue it has
+            # not been observed in, so unknown speed is skipped rather than
+            # assumed.
+            if other.speed_mps is None or other.speed_mps > stopped_mps:
                 continue
             scale = track.metres_per_pixel
             if scale is None:
@@ -297,9 +310,33 @@ class RuleEngine:
         # "Stationary" in the task definition, so the threshold is a real speed.
         # 0.6 m/s is about 2 km/h: slow enough to exclude crawling traffic.
         threshold = float(cfg.get("speed_mps", 0.6))
+        # A box clipped by the frame boundary is a poor basis for any judgement:
+        # its apparent length is truncated, so the scale used to convert pixels
+        # to metres is wrong, and a static object sitting against the edge of
+        # the image is far more likely to be a parked vehicle or a piece of
+        # street furniture than a breakdown in a traffic lane. Measured over a
+        # development clip there was a track pinned to x=[0,175] at 0.02-0.05 m/s
+        # for the whole clip, inside a road polygon, and it satisfied every other
+        # condition for stopped_vehicle indefinitely.
+        margin = float(cfg.get("frame_margin_px", 8.0))
+        # Frame dimensions live on the SceneState, not the FrameState; reading
+        # them off the wrong object silently disables the test.
+        width = float(getattr(getattr(state, "scene", None), "width", 0) or 0)
+        height = float(getattr(getattr(state, "scene", None), "height", 0) or 0)
         active_keys: set[tuple[Any, ...]] = set()
         for track in state.tracks:
             if not TrackManager.is_vehicle(track) or not self._road_track(track, scene):
+                continue
+            if (
+                width
+                and height
+                and (
+                    track.bbox[0] <= margin
+                    or track.bbox[1] <= margin
+                    or track.bbox[2] >= width - margin
+                    or track.bbox[3] >= height - margin
+                )
+            ):
                 continue
             speed = track.speed_mps
             if speed is None:
@@ -346,8 +383,16 @@ class RuleEngine:
         minimum = int(cfg.get("min_vehicles", 4))
         active_keys: set[tuple[Any, ...]] = set()
         for key, tracks in groups.items():
-            slow = [track for track in tracks if (track.speed_mps or 0.0) <= crawl_mps]
-            if len(tracks) < minimum or len(slow) < minimum:
+            # Only tracks with a measured speed can be called slow. A track
+            # seen once reports no speed at all, and counting it as slow would
+            # manufacture congestion out of the first frame of every object.
+            slow = [
+                track
+                for track in tracks
+                if track.speed_mps is not None and track.speed_mps <= crawl_mps
+            ]
+            moving = [track for track in tracks if track.speed_mps is not None]
+            if len(moving) < minimum or len(slow) < minimum:
                 continue
             condition_key = (label, key)
             active_keys.add(condition_key)
@@ -546,7 +591,19 @@ class RuleEngine:
         scene = self._scene(state)
         if not getattr(scene, "has_road", False):
             return self._inactive(label)
-        active_keys: set[tuple[Any, ...]] = set()
+        # A person standing still in the road is a different event from one
+        # crossing it, and the definition is about crossing: steps onto the
+        # road, leaves the road. Measured over 30 s this rule was active on
+        # 36% of frames from 8 distinct tracks, and the only test it applied was
+        # "is a person inside a road polygon and outside a crossing polygon" --
+        # which is also true of anyone waiting at a kerb that the hand-drawn
+        # polygon happens to cover, and of anyone on a median.
+        #
+        # So require sustained presence and real movement. Movement is the part
+        # that separates a person using the road from a person standing on it,
+        # and requiring the whole box to stay inside the carriageway removes the
+        # kerbside cases that a centre-point test cannot.
+        min_speed = float(cfg.get("min_speed_mps", 0.4))
         for track in state.tracks:
             if not TrackManager.is_person(track) or not self._road_track(track, scene):
                 continue
@@ -554,12 +611,38 @@ class RuleEngine:
             if scene.crossing_for_point(track.center) is not None:
                 self._condition_start.pop(key, None)
                 continue
-            active_keys.add(key)
+            speed = track.speed_mps
+            # The whole body must be over the carriageway, not one toe: a box
+            # that is mostly off the road polygon is someone on the kerb.
+            corners = (
+                (track.bbox[0], track.bbox[1]), (track.bbox[2], track.bbox[1]),
+                (track.bbox[0], track.bbox[3]), (track.bbox[2], track.bbox[3]),
+                track.center, track.bottom_center,
+            )
+            inside = sum(1 for point in corners if scene.is_road_point(point))
+            # A majority, not unanimity. The road polygons are hand-drawn against
+            # a coordinate grid, so demanding that all six sample points fall
+            # inside suppressed every event in the clip -- the geometry is not
+            # accurate enough to justify that. Requiring a majority still
+            # excludes someone standing on a kerb, which is what the test is for.
+            if speed is None or speed < min_speed or inside * 2 < len(corners):
+                self._condition_start.pop(key, None)
+                continue
             since = self._condition_since(key, True, state.timestamp)
             if since is not None and state.timestamp - since >= float(cfg.get("duration", 1.0)):
-                self._retain_conditions(label, active_keys)
-                return RuleSignal(label, True, confidence=0.8, evidence={"track_id": track.track_id}, start_hint=since)
-        self._retain_conditions(label, active_keys)
+                self._retain_conditions(label, {key})
+                return RuleSignal(
+                    label,
+                    True,
+                    confidence=0.8,
+                    evidence={
+                        "track_id": track.track_id,
+                        "speed_mps": round(speed, 2),
+                        "on_road_points": f"{inside}/{len(corners)}",
+                    },
+                    start_hint=since,
+                )
+        self._retain_conditions(label, set())
         return self._inactive(label)
 
     def _failure_to_yield(self, state: FrameState) -> RuleSignal:
@@ -569,7 +652,13 @@ class RuleEngine:
         if not getattr(scene, "has_geometry", False) or not scene.config.crossings:
             return self._inactive(label)
         people = [t for t in state.tracks if TrackManager.is_person(t)]
-        vehicles = [t for t in state.tracks if TrackManager.is_vehicle(t) and t.speed_mps and t.speed_mps > 1.0]
+        vehicles = [
+            t
+            for t in state.tracks
+            if TrackManager.is_vehicle(t)
+            and t.speed_mps is not None
+            and t.speed_mps > float(cfg.get("moving_mps", 1.0))
+        ]
         active_keys: set[tuple[Any, ...]] = set()
         for person in people:
             # The pedestrian must be *on* the crossing, not merely near it. With
@@ -586,6 +675,26 @@ class RuleEngine:
                     crossing = scene.crossing_for_point(vehicle.bottom_center)
                 if crossing is None or list(crossing) != list(standing_on):
                     continue
+                # The pedestrian has to be in the vehicle's path, and the
+                # vehicle has to be arriving rather than already past. "Some
+                # vehicle is somewhere on the same crossing" is otherwise true
+                # for every vehicle that traverses it, which is most of them.
+                if not self._in_path(vehicle, person, state):
+                    continue
+                # The discriminator. A vehicle that fails to yield is one that
+                # arrives at an occupied crossing and *keeps its speed*; a
+                # vehicle that yields brakes. The previous version of this rule
+                # only asked for a vehicle moving faster than 1 m/s, which a
+                # car decelerating from 12 m/s to a stop is still doing for most
+                # of a second -- so the rule was firing on correct behaviour.
+                # Requiring the absence of braking is what separates the two.
+                # 2.0 m/s of speed lost in a second is a light brake; a driver
+                # yielding to a pedestrian on a crossing loses considerably
+                # more than that.
+                if self._speed_drop(vehicle, state.timestamp) >= float(
+                    cfg.get("yield_brake_mps", 2.0)
+                ):
+                    continue
                 key = (label, person.track_id, vehicle.track_id)
                 since = self._condition_since(key, True, state.timestamp)
                 if since is not None:
@@ -595,11 +704,40 @@ class RuleEngine:
                             label,
                             True,
                             confidence=0.75,
-                            evidence={"person_id": person.track_id, "vehicle_id": vehicle.track_id},
+                            evidence={
+                                "person_id": person.track_id,
+                                "vehicle_id": vehicle.track_id,
+                                "vehicle_mps": round(vehicle.speed_mps, 2),
+                                "brake_mps": round(
+                                    self._speed_drop(vehicle, state.timestamp), 2
+                                ),
+                            },
                             start_hint=since,
                         )
         self._retain_conditions(label, active_keys)
         return self._inactive(label)
+
+    def _in_path(self, vehicle: TrackState, person: TrackState, state: FrameState) -> bool:
+        """True when the person lies ahead of the vehicle, inside its width.
+
+        Uses the vehicle's direction of travel rather than the image axes, so
+        it works for an approach from any side of the junction. The person
+        counts as in-path when they are within half a car width of the line
+        the vehicle is travelling along: inside the corridor means a conflict,
+        outside it means the pedestrian is crossing somewhere else.
+        """
+        vx, vy = vehicle.velocity
+        norm = math.hypot(vx, vy)
+        if norm < 1e-3:
+            return False
+        ux, uy = vx / norm, vy / norm
+        dx = person.center[0] - vehicle.center[0]
+        dy = person.center[1] - vehicle.center[1]
+        ahead = dx * ux + dy * uy
+        if ahead <= 0.0:
+            return False
+        lateral = abs(-dx * uy + dy * ux)
+        return lateral <= max(1.0, 0.6 * vehicle.width)
 
     def _interaction_rule(self, state: FrameState, label: str) -> RuleSignal:
         cfg = self._rule_config(label)
@@ -630,19 +768,45 @@ class RuleEngine:
                         self._speed_drop(first, state.timestamp),
                         self._speed_drop(second, state.timestamp),
                     )
-                    side_swipe = abs(first.center[0] - second.center[0]) > 0.25 * max(
-                        first.width, second.width, 1.0
+                    # Longitudinal following behind an already-stopped or still
+                    # rolling vehicle is how every queue forms, and a hard brake
+                    # at a red light is the commonest thing that happens at this
+                    # intersection. Measured over 300 frames there were 382
+                    # close-and-braking pairs -- 1.3 per frame of ordinary
+                    # braking in dense traffic.
+                    #
+                    # Two candidate discriminators were tried and both were
+                    # refuted by measurement. Lateral closing speed does not
+                    # separate the cases at all: 87% of those pairs exceed
+                    # 1.0 m/s with a median of 5.78 m/s, because adjacent lanes at
+                    # different depths produce large image-space horizontal
+                    # velocities, so the quantity measures perspective rather
+                    # than a manoeuvre. A "leader is stopped" test fails too,
+                    # because a queue leader is still rolling when the follower
+                    # brakes.
+                    #
+                    # So the only conflict this camera can actually resolve is a
+                    # vulnerable road user in a vehicle's path: 5 of the 382
+                    # pairs. That is the condition used here. It is a deliberate
+                    # precision-for-recall trade -- vehicle-to-vehicle near
+                    # misses are not separable from normal queue braking at this
+                    # camera height and resolution, and emitting 1.3 candidates
+                    # per frame would guarantee a zero for the class.
+                    vulnerable = any(TrackManager.is_person(t) for t in (first, second)) or any(
+                        self._special(t, ("bicycle", "motorcycle", "bike"))
+                        for t in (first, second)
                     )
                     condition = (
-                        evasive >= float(cfg.get("deceleration_mps2", 2.5))
+                        vulnerable
+                        and evasive >= float(cfg.get("speed_drop_mps", 2.5))
                         and closing >= float(cfg.get("closing_mps", 2.0))
                         and (
                             (gap is not None and gap <= float(cfg.get("gap_m", 3.0)))
                             or overlap > float(cfg.get("overlap", 0.02))
                         )
-                        and (side_swipe or ttc is None or ttc <= float(cfg.get("ttc", 2.0)))
                     )
                     evidence["deceleration_mps2"] = round(evasive, 2)
+                    evidence["vulnerable"] = bool(vulnerable)
                 else:  # accident
                     # Contact is a geometric fact, not a speed threshold: once
                     # two bodies overlap, they overlap. Requiring closing speed
@@ -690,13 +854,68 @@ class RuleEngine:
                     # speed on the frame contact is first seen.
                     approach = self._closing_speed_mps(first, second)
                     fast_approach = approach >= float(cfg.get("approach_closing_mps", 2.5))
+                    if not fast_approach:
+                        self._pending.pop(key, None)
+                        continue
                     if onset:
-                        condition = heavy and fast_approach
-                    else:
-                        condition = heavy and impact
+                        # Start of a candidate impact. Nothing is reported yet:
+                        # contact while closing happens constantly between cars
+                        # in adjacent lanes, and measured over a 30 s window
+                        # this rule was active on 26% of frames with a median
+                        # box overlap of 0.007, which is two boxes grazing, not
+                        # two vehicles colliding.
+                        self._pending[key] = (
+                            state.timestamp,
+                            approach,
+                            # Both parties are closing at a measured rate here,
+                            # so both speeds are known; max() over a pair that
+                            # might include an unmeasured track would silently
+                            # record 0.0 m/s and make every later "did it slow
+                            # down?" test trivially true.
+                            max(
+                                first.speed_mps if first.speed_mps is not None else 0.0,
+                                second.speed_mps if second.speed_mps is not None else 0.0,
+                            ),
+                        )
+                        continue
+                    # Confirmation: a collision destroys momentum. The pair that
+                    # was closing at `approach` must have shed it, either as a
+                    # hard deceleration or as the gap ceasing to close. Ordinary
+                    # following does neither -- the follower keeps rolling up at
+                    # a steady rate -- so this separates an impact from a car
+                    # pulling up behind another.
+                    started = self._pending.get(key)
+                    if started is None:
+                        continue
+                    onset_t, onset_approach, onset_speed = started
+                    if state.timestamp - onset_t > float(cfg.get("confirm_sec", 1.5)):
+                        self._pending.pop(key, None)
+                        continue
+                    collapsed = approach <= onset_approach * float(
+                        cfg.get("collapse_fraction", 0.5)
+                    )
+                    braked = max(
+                        self._speed_drop(first, state.timestamp),
+                        self._speed_drop(second, state.timestamp),
+                    ) >= float(cfg.get("confirm_speed_drop_mps", 3.0))
+                    # "It slowed down" is only evidence if the speed after the
+                    # contact is actually measured. An unmeasured track reports
+                    # no speed, and 0.0 would satisfy this test on its own.
+                    slowed = (
+                        onset_speed > 0
+                        and first.speed_mps is not None
+                        and second.speed_mps is not None
+                        and max(first.speed_mps, second.speed_mps)
+                        <= onset_speed * float(cfg.get("collapse_fraction", 0.5))
+                    )
                     evidence["approach_mps"] = round(approach, 2)
+                    evidence["onset_approach_mps"] = round(onset_approach, 2)
                     evidence["deceleration_mps2"] = round(decel, 2)
-                    evidence["onset"] = bool(onset)
+                    evidence["onset"] = True
+                    if not (collapsed or braked or slowed):
+                        continue
+                    self._pending.pop(key, None)
+                    condition = heavy
 
                 since = self._condition_since(key, condition, state.timestamp)
                 if not condition:
@@ -716,6 +935,7 @@ class RuleEngine:
                     for second in road_users[i + 1 :]
                 }
                 self._contact = {k: v for k, v in self._contact.items() if k in live}
+                self._pending = {k: v for k, v in self._pending.items() if k in live}
         self._retain_conditions(label, active_keys)
         return self._inactive(label)
 

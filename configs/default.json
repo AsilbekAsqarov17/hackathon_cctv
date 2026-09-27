@@ -33,7 +33,8 @@
       "enabled": true,
       "speed_mps": 0.6,
       "duration": 10.0,
-      "queue_radius_m": 7.0
+      "queue_radius_m": 7.0,
+      "frame_margin_px": 8.0
     },
     "congestion": {
       "enabled": true,
@@ -64,11 +65,14 @@
     },
     "jaywalking": {
       "enabled": true,
-      "duration": 1.0
+      "duration": 1.0,
+      "min_speed_mps": 0.4
     },
     "failure_to_yield": {
       "enabled": true,
-      "hold": 0.8
+      "hold": 0.8,
+      "moving_mps": 1.0,
+      "yield_brake_mps": 2.0
     },
     "near_miss": {
       "enabled": true,
@@ -86,7 +90,10 @@
       "impact_decel_mps2": 4.0,
       "approach_closing_mps": 2.5,
       "settle_sec": 0.6,
-      "hold": 3.0
+      "hold": 3.0,
+      "confirm_sec": 1.5,
+      "collapse_fraction": 0.5,
+      "confirm_speed_drop_mps": 3.0
     },
     "road_obstacle": {
       "enabled": true,
