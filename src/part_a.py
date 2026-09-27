@@ -45,6 +45,10 @@ class PartAPipeline:
         self.debug_enabled = bool(self.config.get("debug", {}).get("enabled", False))
         self.write_debug_video = bool(self.config.get("debug", {}).get("write_video", True))
         self.dump_jsonl = bool(self.config.get("debug", {}).get("dump_jsonl", False))
+        self.render_mode = str(self.config.get("debug", {}).get("render_mode", "tracks"))
+        if self.render_mode not in {"tracks", "detections", "both"}:
+            warnings.warn(f"unknown debug.render_mode {self.render_mode!r}; using 'tracks'")
+            self.render_mode = "tracks"
         self.debug_dir = Path(self.config.get("debug", {}).get("output_dir", ROOT / "debug"))
         if not self.debug_dir.is_absolute():
             self.debug_dir = ROOT / self.debug_dir
@@ -83,17 +87,49 @@ class PartAPipeline:
         frame: np.ndarray,
         state: FrameState,
         signals: dict[str, Any],
+        detections: list[Any] | None = None,
+        mode: str = "tracks",
     ) -> np.ndarray:
+        """Render the overlay.
+
+        ``mode`` exists to separate the three stages that can each produce
+        duplicate-looking boxes, which is otherwise impossible to diagnose from
+        the video alone:
+
+        ``detections``  raw detector output after NMS, no identities
+        ``tracks``      one box per currently observed track, with its id
+        ``both``        detections in red, tracks in green/orange
+
+        The track list passed in is already restricted to tracks seen on this
+        frame, so this draws exactly one box per live object. Drawing the
+        retained-but-unobserved set is what previously produced 57.6 boxes for
+        16.8 real objects.
+        """
         output = frame.copy()
-        for track in state.tracks:
-            x1, y1, x2, y2 = [int(v) for v in track.bbox]
-            color = (0, 220, 0) if track.class_name.lower() == "person" else (0, 180, 255)
-            cv2.rectangle(output, (x1, y1), (x2, y2), color, 2)
-            label = f"{track.track_id}:{track.class_name}"
-            cv2.putText(output, label, (x1, max(15, y1 - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1, cv2.LINE_AA)
+        if mode in ("detections", "both"):
+            for det in detections or []:
+                x1, y1, x2, y2 = (int(v) for v in det.bbox)
+                # Red, and explicitly labelled DET, so a detection can never be
+                # mistaken for a track.
+                cv2.rectangle(output, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                cv2.putText(
+                    output, f"DET {det.class_name} {det.score:.2f}", (x1, max(14, y1 - 4)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1, cv2.LINE_AA,
+                )
+        if mode in ("tracks", "both"):
+            for track in state.tracks:
+                x1, y1, x2, y2 = (int(v) for v in track.bbox)
+                color = (0, 220, 0) if track.class_name.lower() == "person" else (0, 180, 255)
+                cv2.rectangle(output, (x1, y1), (x2, y2), color, 2)
+                label = f"{track.track_id}:{track.class_name}"
+                cv2.putText(output, label, (x1, max(15, y1 - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1, cv2.LINE_AA)
         active = [label for label, signal in signals.items() if signal.active]
+        header = f"tracks={len(state.tracks)}  mode={mode}"
+        if mode in ("detections", "both"):
+            header = f"detections={len(detections or [])}  " + header
+        cv2.putText(output, header, (8, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         if active:
-            cv2.putText(output, ", ".join(active), (8, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2, cv2.LINE_AA)
+            cv2.putText(output, ", ".join(active), (8, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2, cv2.LINE_AA)
         return output
 
     def run(self, video_path: str) -> list[list[float | str]]:
@@ -149,6 +185,7 @@ class PartAPipeline:
         last_timestamp = 0.0
         perception_warned = False
         next_deadline_check = 200
+        known_ids: set[int] = set()
         try:
             for frame_id, timestamp, frame in reader.frames(stride=stride):
                 last_timestamp = timestamp
@@ -201,19 +238,35 @@ class PartAPipeline:
                 }
                 segmenter.add(timestamp, filtered)
                 if flags_file is not None:
+                    # Counts are recorded per frame so that duplication can be
+                    # attributed to a stage without re-running the video:
+                    # detections >> tracks means the detector or NMS is
+                    # duplicating, tracks > active means the tracker is
+                    # churning identities, and any excess drawn over `tracks`
+                    # would mean the renderer is drawing stale state.
+                    active_ids = {track.track_id for track in tracks}
                     flags_file.write(
                         json.dumps(
                             {
                                 "timestamp": round(timestamp, 4),
+                                "frame_id": frame_id,
                                 "active": [label for label, signal in filtered.items() if signal.active],
+                                "counts": {
+                                    "raw_detections": len(detections),
+                                    "active_tracks": len(tracks),
+                                    "retained_tracks": len(manager.all_states()),
+                                    "new_track_ids": len(active_ids - known_ids),
+                                    "returned_by_tracker": len(observations),
+                                },
                                 "tracks": manager.snapshot(),
                                 "traffic": traffic_stats,
                             }
                         )
                         + "\n"
                     )
+                    known_ids |= active_ids
                 if writer is not None:
-                    writer.write(self._draw_debug(frame, state, filtered))
+                    writer.write(self._draw_debug(frame, state, filtered, detections, self.render_mode))
                 processed += 1
         finally:
             reader.close()

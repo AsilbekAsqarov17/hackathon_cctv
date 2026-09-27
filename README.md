@@ -239,7 +239,20 @@ These are real and were measured, not guessed.
   the EDA are a lower bound.
 - **The tracker is the simple one.** The vendored ByteTrack needs `lap`,
   `cython_bbox` and `scipy`, none of which ship manylinux wheels, so it is not
-  the default. On a busy intersection that costs identity stability.
+  the default. The built-in tracker uses IoU association only, with no motion
+  model, so identity is lost across fast occlusions and it has no way to keep a
+  track alive when a detection drops below the low threshold. Association
+  thresholds were measured rather than guessed — see "Tracking" below.
+- **Tracking: measured, and it was badly wrong until it was measured.** The
+  debug overlay was drawing 57.6 boxes per frame for 16.8 real objects, with
+  medians of 2 frames per track identity. Two causes, both fixed: association
+  demanded IoU ≥ 0.7 when only 81% of track-to-detection pairs reach it, so
+  every miss minted a fresh id; and `TrackManager.update` returned every
+  retained track rather than those seen on the current frame, so the renderer
+  drew identities up to two seconds dead. Median track lifetime is now 40
+  frames, a followed vehicle holds one id across 46 consecutive samples with
+  zero switches, and no two drawn boxes overlap. `debug.render_mode` renders
+  detections, tracks or both so the three stages can be told apart.
 - **`near_miss` and `accident` rest on braking and contact heuristics** that have
   not been validated against real collisions, because the sample clips contain
   no confirmed collision.

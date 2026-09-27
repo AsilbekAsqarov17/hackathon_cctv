@@ -15,6 +15,7 @@ class TrackManager:
         self.max_age_seconds = max(0.1, float(max_age_seconds))
         self.history_seconds = max(1.0, float(history_seconds))
         self._states: dict[int, TrackState] = {}
+        self._last_seen: set[int] = set()
 
     @staticmethod
     def _center(bbox: tuple[float, float, float, float]) -> tuple[float, float]:
@@ -27,6 +28,18 @@ class TrackManager:
         frame_id: int,
         scene: SceneContext | None = None,
     ) -> list[TrackState]:
+        """Fold observations in and return only the tracks seen *this* frame.
+
+        The distinction matters. Tracks are deliberately kept alive for
+        ``max_age_seconds`` so that a brief occlusion does not cost an
+        identity, but a track that was not observed on the current frame is a
+        memory, not a measurement. Returning the whole retained set made every
+        consumer see ghosts: the debug renderer drew a box per stale identity,
+        and the rule engine and the risk features were fed phantom vehicles
+        whose velocity and lane history belong to a past frame. On the sample
+        clips that meant 57.6 boxes drawn against 16.8 real tracks, of which
+        40.9 were stale.
+        """
         seen: set[int] = set()
         for observation in observations:
             track_id = int(observation.track_id)
@@ -101,8 +114,30 @@ class TrackManager:
         for track_id, state in self._states.items():
             if track_id not in seen:
                 state.missed_frames += 1
+        self._last_seen = set(seen)
         self._prune(timestamp)
-        return self.states()
+        return self.active_states(seen)
+
+    def active_states(self, seen: set[int] | None = None) -> list[TrackState]:
+        """Tracks observed on the current frame, in stable id order.
+
+        ``seen`` may be supplied by the caller that just folded observations in;
+        otherwise the ids updated by the most recent call are used.
+        """
+        if seen is None:
+            seen = self._last_seen
+        return sorted(
+            (state for tid, state in self._states.items() if tid in seen),
+            key=lambda state: state.track_id,
+        )
+
+    def all_states(self) -> list[TrackState]:
+        """Every retained track, including ones not seen recently.
+
+        For diagnostics only. Feeding these to rules or to the renderer
+        reintroduces the stale-track problem this class exists to avoid.
+        """
+        return sorted(self._states.values(), key=lambda state: state.track_id)
 
     def _assign_lane(self, state: TrackState, scene: SceneContext) -> None:
         lane = scene.lane_for_point(state.center)
@@ -121,9 +156,6 @@ class TrackManager:
         ]
         for track_id in stale:
             del self._states[track_id]
-
-    def states(self) -> list[TrackState]:
-        return sorted(self._states.values(), key=lambda state: state.track_id)
 
     def get(self, track_id: int) -> TrackState | None:
         return self._states.get(track_id)
@@ -242,9 +274,17 @@ class TrackManager:
         return latest
 
     def snapshot(self) -> list[dict]:
+        """Every retained track, flagged with whether it is currently observed.
+
+        Diagnostic output for the per-frame JSONL dump. Includes stale tracks on
+        purpose so that identity churn is visible in the log, which is how the
+        duplicate-box problem was diagnosed in the first place.
+        """
+        active = self._last_seen
         return [
             {
                 "track_id": state.track_id,
+                "active": state.track_id in active,
                 "class_name": state.class_name,
                 "bbox": state.bbox,
                 "center": state.center,
@@ -254,5 +294,5 @@ class TrackManager:
                 "velocity_world": state.velocity_world,
                 "lane_id": state.lane_id,
             }
-            for state in self.states()
+            for state in self.all_states()
         ]

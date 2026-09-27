@@ -14,7 +14,7 @@
     "backend": "official",
     "high_threshold": 0.5,
     "low_threshold": 0.15,
-    "match_threshold": 0.7,
+    "match_threshold": 0.3,
     "max_age": 30,
     "min_hits": 2
   },
